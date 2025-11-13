@@ -9,28 +9,31 @@ bun add bunserve
 ## Quick Start
 
 ### Basic Server
+
 ```typescript
-import { BunServe } from 'bunserve'
+import { create_router, create_server } from 'bunserve'
 
-const app = new BunServe()
+const router = create_router()
 
-app.get('/hello', () => 'Hello World!')
-app.get('/users/:id', ({ params }) => ({ id: params.id }))
+router.get('/hello', () => 'Hello World!')
+router.get('/users/:id', ({ params }) => ({ id: params.id }))
 
-app.listen(3000)
+const server = create_server({ router })
+server.listen(3000)
 ```
 
 ### Run the Server
+
 ```bash
-bun run index.ts
+bun run server.ts
 ```
 
 ## Your First API
 
 ```typescript
-import { BunServe, t } from 'bunserve'
+import { create_router, create_server } from 'bunserve'
 
-const app = new BunServe()
+const router = create_router()
 
 // Define user interface
 interface User {
@@ -46,52 +49,35 @@ const users: User[] = [
 ]
 
 // Get all users
-app.get('/users', () => users)
+router.get('/users', () => users)
 
 // Get user by ID
-app.get('/users/:id', {
-  schema: {
-    params: t.Object({ id: t.String() }),
-    response: t.Object({
-      id: t.String(),
-      name: t.String(),
-      email: t.String()
-    })
-  },
-  handler: ({ params }) => {
-    const user = users.find(u => u.id === params.id)
-    if (!user) {
-      throw new Error('User not found')
-    }
-    return user
+router.get('/users/:id', ({ params }) => {
+  const user = users.find(u => u.id === params.id)
+  if (!user) {
+    const { set } = context
+    set.status = 404
+    return { error: 'User not found' }
   }
+  return user
 })
 
 // Create new user
-app.post('/users', {
-  schema: {
-    body: t.Object({
-      name: t.String({ minLength: 1 }),
-      email: t.String({ format: 'email' })
-    }),
-    response: t.Object({
-      id: t.String(),
-      name: t.String(),
-      email: t.String()
-    })
-  },
-  handler: ({ body }) => {
-    const newUser: User = {
-      id: String(users.length + 1),
-      name: body.name,
-      email: body.email
-    }
-    users.push(newUser)
-    return newUser
+router.post('/users', async ({ body }) => {
+  const new_user: User = {
+    id: String(users.length + 1),
+    name: body.name,
+    email: body.email
   }
+  users.push(new_user)
+  
+  const { set } = context
+  set.status = 201
+  return new_user
 })
 
-app.listen(3000, () => {
+const server = create_server({ router })
+server.listen(3000, () => {
   console.log('Server running on http://localhost:3000')
 })
 ```
@@ -113,7 +99,7 @@ curl -X POST http://localhost:3000/users \
 
 ## Next Steps
 
-- [Middleware Guide](./middleware.md)
-- [Schema Validation](../api-reference/schema-validation.md)
-- [Type Safety Guide](../guides/type-safety.md)
-- [Error Handling](../guides/error-handling.md)
+- [Middleware Guide](../increments/1.1-middleware.md)
+- [Route Parameters](../increments/0.1-basic-routing.md)
+- [Response Configuration](../increments/0.2-response-context.md)
+- [Context Integration](../context/bun-serve.md)

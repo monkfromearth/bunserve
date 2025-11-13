@@ -1,12 +1,64 @@
 {
   "name": "bunserve",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "version": "0.1.0",
+  "description": "Express-like typesafe routing library for Bun.serve with <5% overhead",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir=dist --target=node --format=esm --splitting --dts",
+    "dev": "bun run --hot src/index.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run typecheck && bun test && bun run build"
+  },
+  "keywords": [
+    "bun",
+    "http",
+    "server",
+    "routing",
+    "express",
+    "typescript",
+    "typesafe",
+    "middleware",
+    "router",
+    "web-framework",
+    "cors",
+    "error-handler"
+  ],
+  "author": "Sameer Khan <sameer.khan@theinternetfolks.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monkfromearth/bunserve.git"
+  },
+  "homepage": "https://github.com/monkfromearth/bunserve#readme",
+  "bugs": {
+    "url": "https://github.com/monkfromearth/bunserve/issues"
+  },
+  "dependencies": {
+    "@theinternetfolks/context": "^2.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.4",
+    "@types/bun": "^1.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
   }
 }
