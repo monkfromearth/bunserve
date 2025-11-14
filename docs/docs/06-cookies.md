@@ -192,7 +192,9 @@ app.post('/auth/login', async ({ body, cookies }) => {
   const user = await authenticate(body.email, body.password)
 
   if (!user) {
-    throw HttpError.unauthorized('Invalid credentials')
+    const error: any = new Error('Invalid credentials');
+    error.status = 401;
+    throw error;
   }
 
   // Create session
@@ -219,19 +221,25 @@ const require_session = async ({ cookies }, next) => {
   const session_id = cookies.get('session_id')
 
   if (!session_id) {
-    throw HttpError.unauthorized('Not logged in')
+    const error: any = new Error('Not logged in');
+    error.status = 401;
+    throw error;
   }
 
   const session = sessions.get(session_id)
 
   if (!session) {
-    throw HttpError.unauthorized('Invalid session')
+    const error: any = new Error('Invalid session');
+    error.status = 401;
+    throw error;
   }
 
   // Check if session expired (24 hours)
   if (Date.now() - session.last_activity > 24 * 60 * 60 * 1000) {
     sessions.delete(session_id)
-    throw HttpError.unauthorized('Session expired')
+    const error: any = new Error('Session expired');
+    error.status = 401;
+    throw error;
   }
 
   // Update last activity
@@ -274,7 +282,9 @@ app.post('/auth/login', async ({ body, cookies }) => {
   const user = await authenticate(body.email, body.password)
 
   if (!user) {
-    throw HttpError.unauthorized('Invalid credentials')
+    const error: any = new Error('Invalid credentials');
+    error.status = 401;
+    throw error;
   }
 
   // Create JWT
@@ -300,7 +310,9 @@ const require_jwt = async ({ cookies }, next) => {
   const token = cookies.get('auth_token')
 
   if (!token) {
-    throw HttpError.unauthorized('Not logged in')
+    const error: any = new Error('Not logged in');
+    error.status = 401;
+    throw error;
   }
 
   try {
@@ -308,7 +320,9 @@ const require_jwt = async ({ cookies }, next) => {
     Context.set({ user_id: payload.user_id, email: payload.email })
     await next()
   } catch (error) {
-    throw HttpError.unauthorized('Invalid or expired token')
+    const authError: any = new Error('Invalid or expired token');
+    authError.status = 401;
+    throw authError;
   }
 }
 
@@ -394,13 +408,17 @@ const validate_csrf = async ({ cookies, body, request }, next) => {
     const csrf_token = request.headers.get('x-csrf-token') || body.csrf_token
 
     if (!session_id || !csrf_token) {
-      throw HttpError.forbidden('CSRF token required')
+      const error: any = new Error('CSRF token required');
+      error.status = 403;
+      throw error;
     }
 
     const expected_token = csrf_tokens.get(session_id)
 
     if (csrf_token !== expected_token) {
-      throw HttpError.forbidden('Invalid CSRF token')
+      const error: any = new Error('Invalid CSRF token');
+      error.status = 403;
+      throw error;
     }
   }
 
@@ -457,7 +475,9 @@ app.post('/auth/login', async ({ body, cookies }) => {
   const user = await authenticate(body.email, body.password)
 
   if (!user) {
-    throw HttpError.unauthorized('Invalid credentials')
+    const error: any = new Error('Invalid credentials');
+    error.status = 401;
+    throw error;
   }
 
   const session_id = crypto.randomUUID()

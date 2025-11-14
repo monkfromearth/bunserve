@@ -140,9 +140,8 @@ app.get('/api/users/search', ({ query }) => {
   };
 });
 
-// Create and start the server
-const app = bunserve({ port: 3000 });
-app.listen();
+// Start the server
+app.listen(3000);
 ```
 
 ## Authentication System
@@ -279,8 +278,8 @@ app.post('/auth/logout', [authenticate], () => {
   return { message: 'Logged out successfully' }
 })
 
-const app = bunserve({ port: 3000 })
-app.listen()
+// Start the server
+app.listen(3000)
 ```
 
 ## File Upload API
@@ -348,14 +347,16 @@ app.post('/upload', async ({ body, set }) => {
 })
 
 // Upload multiple files
-app.post('/upload/multiple', async ({ body }) => {
+app.post('/upload/multiple', async ({ body, set }) => {
   if (!(body instanceof FormData)) {
-    throw HttpError.bad_request('Request must be multipart/form-data')
+    set.status = 400;
+    return { error: 'Request must be multipart/form-data' };
   }
 
   const files = body.getAll('files') as File[]
   if (files.length === 0) {
-    throw HttpError.bad_request('No files provided')
+    set.status = 400;
+    return { error: 'No files provided' };
   }
 
   const uploaded = []
@@ -363,11 +364,13 @@ app.post('/upload/multiple', async ({ body }) => {
   for (const file of files) {
     // Validate
     if (file.size > MAX_FILE_SIZE) {
-      throw HttpError.bad_request(`File ${file.name} too large`)
+      set.status = 400;
+      return { error: `File ${file.name} too large` };
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
-      throw HttpError.bad_request(`Invalid type for ${file.name}`)
+      set.status = 400;
+      return { error: `Invalid type for ${file.name}` };
     }
 
     // Save
@@ -394,8 +397,8 @@ app.get('/uploads/:filename', ({ params }) => {
   return new Response(Bun.file(filepath))
 })
 
-const app = bunserve({ port: 3000 })
-app.listen()
+// Start the server
+app.listen(3000)
 ```
 
 ## Middleware Stack
@@ -409,7 +412,6 @@ import {
   error_handler,
   cors,
   logger,
-  HttpError,
   Context
 } from 'bunserve'
 
@@ -462,7 +464,9 @@ app.use(async ({ request, set }, next) => {
   if (limit && now < limit.reset) {
     if (limit.count >= 100) {
       set.status = 429
-      throw HttpError.too_many_requests('Rate limit exceeded')
+      const error: any = new Error('Rate limit exceeded');
+      error.status = 429;
+      throw error;
     }
     limit.count++
   } else {
@@ -483,8 +487,8 @@ app.use(async ({ set }, next) => {
 // Routes
 app.get('/api/data', () => ({ data: 'Hello World' }))
 
-const app = bunserve({ port: 3000 })
-app.listen()
+// Start the server
+app.listen(3000)
 ```
 
 ## Health Checks
@@ -611,9 +615,7 @@ app.get('/api/stats', () => {
   }
 })
 
-const app = bunserve({ port: 3000 })
-
-// Add WebSocket support
+// Add WebSocket support to the server
 const bun_server = Bun.serve({
   port: 3000,
   routes: app.build_routes(),
@@ -656,7 +658,7 @@ const bun_server = Bun.serve({
 Using Bun's built-in SQLite:
 
 ```typescript
-import { bunserve, HttpError } from 'bunserve'
+import { bunserve } from 'bunserve'
 import { Database } from 'bun:sqlite'
 
 const db = new Database('app.db')
@@ -699,11 +701,12 @@ app.get('/api/users', ({ query }) => {
 })
 
 // Get user
-app.get('/api/users/:id', ({ params }) => {
+app.get('/api/users/:id', ({ params, set }) => {
   const user = db.query('SELECT * FROM users WHERE id = ?').get(params.id)
 
   if (!user) {
-    throw HttpError.not_found('User not found')
+    set.status = 404;
+    return { error: 'User not found' };
   }
 
   return user
@@ -724,14 +727,15 @@ app.post('/api/users', async ({ body, set }) => {
     return user
   } catch (error) {
     if (error.message.includes('UNIQUE')) {
-      throw HttpError.conflict('Email already exists')
+      set.status = 409;
+      return { error: 'Email already exists' };
     }
     throw error
   }
 })
 
-const app = bunserve({ port: 3000 })
-app.listen()
+// Start the server
+app.listen(3000)
 ```
 
 ## Next Steps
