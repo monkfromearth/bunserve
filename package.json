@@ -1,7 +1,7 @@
 {
   "name": "bunserve",
   "version": "0.0.1-beta.1",
-  "description": "Express-like typesafe routing library for Bun.serve with <5% overhead",
+  "description": "Express-like typesafe routing library for Bun.serve",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -41,7 +41,7 @@
     "cors",
     "error-handler"
   ],
-  "author": "Sameer Khan <sameer.khan@theinternetfolks.com>",
+  "author": "Sameer Khan <hi@monkfrom.earth>",
   "license": "MIT",
   "repository": {
     "type": "git",
