@@ -1,0 +1,16 @@
+.cursor
+.github
+benchmarks
+docs
+src
+test
+website
+AGENTS.md
+biome.json
+bun.lock
+CHANGELOG.md
+CLAUDE.md
+CONTRIBUTING.md
+PUBLISH.md
+TESTING.md
+tsconfig.json
