@@ -453,30 +453,7 @@ app.use(async ({ set }, next) => {
   await next()
 })
 
-// 5. Rate limiting
-const rate_limits = new Map<string, { count: number; reset: number }>()
-
-app.use(async ({ request, set }, next) => {
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const now = Date.now()
-  const limit = rate_limits.get(ip)
-
-  if (limit && now < limit.reset) {
-    if (limit.count >= 100) {
-      set.status = 429
-      const error: any = new Error('Rate limit exceeded');
-      error.status = 429;
-      throw error;
-    }
-    limit.count++
-  } else {
-    rate_limits.set(ip, { count: 1, reset: now + 15 * 60 * 1000 })
-  }
-
-  await next()
-})
-
-// 6. Response time
+// 5. Response time
 app.use(async ({ set }, next) => {
   const start = performance.now()
   await next()

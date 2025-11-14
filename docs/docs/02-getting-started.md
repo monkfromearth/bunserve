@@ -74,11 +74,11 @@ app.get('/users/:id', ({ params }) => {
   };
 });
 
-// Multiple parameters - extract both postId and commentId from the URL
-app.get('/posts/:postId/comments/:commentId', ({ params }) => {
+// Multiple parameters - extract both post_id and comment_id from the URL
+app.get('/posts/:post_id/comments/:comment_id', ({ params }) => {
   return {
-    post: params.postId,
-    comment: params.commentId
+    post: params.post_id,
+    comment: params.comment_id
   };
 });
 ```
@@ -91,12 +91,12 @@ Access query string values:
 // Access query string parameters from the URL
 app.get('/search', ({ query }) => {
   // Extract search term from query string, default to empty string
-  const searchTerm = query.q || '';
+  const search_term = query.q || '';
   // Parse page number from query string, default to page 1
   const page = parseInt(query.page || '1');
 
   return {
-    searching_for: searchTerm,
+    searching_for: search_term,
     page: page,
     results: [] // Your search results here
   };
@@ -408,7 +408,7 @@ curl -X DELETE http://localhost:3000/api/users/{id}
 Now that you have a basic server running, explore more features:
 
 - **[Routing Guide](./03-routing.md)** - Advanced routing patterns including wildcards
-- **[Middleware](./04-middleware.md)** - CORS, authentication, rate limiting
+- **[Middleware](./04-middleware.md)** - CORS, authentication, sessions, static files
 - **[Response Handling](./09-responses.md)** - Different content types and file serving
 - **[Error Handling](./05-error-handling.md)** - Advanced error handling patterns
 - **[Examples](./07-examples.md)** - Real-world example applications

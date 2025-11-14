@@ -598,16 +598,16 @@ app.post('/upload/tracked', async ({ body, set }) => {
 </head>
 <body>
   <input type="file" id="fileInput" />
-  <button onclick="uploadFile()">Upload</button>
+  <button onclick="upload_file()">Upload</button>
   <div id="progress"></div>
 
   <script>
-    async function uploadFile() {
+    async function upload_file() {
       const file = document.getElementById('fileInput').files[0];
       if (!file) return;
 
-      const formData = new FormData();
-      formData.append('file', file);
+      const form_data = new FormData();
+      form_data.append('file', file);
 
       // Create XMLHttpRequest for progress tracking
       const xhr = new XMLHttpRequest();
@@ -615,9 +615,9 @@ app.post('/upload/tracked', async ({ body, set }) => {
       // Track upload progress
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
-          const percentComplete = (e.loaded / e.total) * 100;
+          const percent_complete = (e.loaded / e.total) * 100;
           document.getElementById('progress').textContent =
-            `Upload progress: ${percentComplete.toFixed(2)}%`;
+            `Upload progress: ${percent_complete.toFixed(2)}%`;
         }
       });
 
@@ -632,7 +632,7 @@ app.post('/upload/tracked', async ({ body, set }) => {
 
       // Send request
       xhr.open('POST', '/upload/tracked');
-      xhr.send(formData);
+      xhr.send(form_data);
     }
   </script>
 </body>

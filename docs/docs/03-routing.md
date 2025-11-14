@@ -70,13 +70,13 @@ app.get('/users/:id', ({ params }) => {
 
 ```typescript
 // Multiple dynamic parameters in the URL path
-app.get('/users/:userId/posts/:postId', ({ params }) => {
+app.get('/users/:user_id/posts/:post_id', ({ params }) => {
   // GET /users/123/posts/456
-  // params.userId = "123"
-  // params.postId = "456"
+  // params.user_id = "123"
+  // params.post_id = "456"
   return {
-    user: params.userId,
-    post: params.postId
+    user: params.user_id,
+    post: params.post_id
   };
 });
 ```
@@ -87,13 +87,13 @@ TypeScript automatically infers parameter types:
 
 ```typescript
 // TypeScript automatically infers parameter types from the route path
-app.get('/posts/:postId/comments/:commentId', ({ params }) => {
-  // TypeScript knows: params = { postId: string; commentId: string }
-  // Autocomplete works for params.postId and params.commentId!
-  const postId: string = params.postId;
-  const commentId: string = params.commentId;
+app.get('/posts/:post_id/comments/:comment_id', ({ params }) => {
+  // TypeScript knows: params = { post_id: string; comment_id: string }
+  // Autocomplete works for params.post_id and params.comment_id!
+  const post_id: string = params.post_id;
+  const comment_id: string = params.comment_id;
 
-  return { postId, commentId };
+  return { post_id, comment_id };
 });
 ```
 
@@ -200,16 +200,16 @@ Access URL query strings:
 // Access and parse query string parameters
 app.get('/search', ({ query }) => {
   // Extract query parameters with defaults
-  const searchTerm = query.q || '';
+  const search_term = query.q || '';
   const page = parseInt(query.page || '1');
   const limit = parseInt(query.limit || '10');
-  const sortBy = query.sort || 'created_at';
+  const sort_by = query.sort || 'created_at';
 
   return {
-    query: searchTerm,
+    query: search_term,
     page,
     limit,
-    sort: sortBy,
+    sort: sort_by,
     results: [] // Your search results
   };
 });
@@ -315,7 +315,7 @@ import { bunserve } from 'bunserve';
 const app = bunserve();
 
 // User routes helper
-const setupUserRoutes = () => {
+const setup_user_routes = () => {
   app.get('/api/users', () => { /* ... */ })
   app.get('/api/users/:id', ({ params }) => { /* ... */ })
   app.post('/api/users', async ({ body }) => { /* ... */ })
@@ -324,15 +324,15 @@ const setupUserRoutes = () => {
 }
 
 // Post routes helper
-const setupPostRoutes = () => {
+const setup_post_routes = () => {
   app.get('/api/posts', () => { /* ... */ })
   app.get('/api/posts/:id', ({ params }) => { /* ... */ })
   app.post('/api/posts', async ({ body }) => { /* ... */ })
 }
 
 // Register all routes
-setupUserRoutes()
-setupPostRoutes()
+setup_user_routes()
+setup_post_routes()
 ```
 
 ## Sub-Routers
@@ -343,42 +343,42 @@ Create modular route definitions with sub-routers:
 // users-router.ts
 import { router } from 'bunserve';
 
-export function createUserRouter() {
-  const userRouter = router();
+export function create_user_router() {
+  const user_router = router();
 
-  userRouter.get('/users', () => ({ users: [] }));
-  userRouter.get('/users/:id', ({ params }) => ({ id: params.id }));
-  userRouter.post('/users', async ({ body }) => ({ created: true }));
+  user_router.get('/users', () => ({ users: [] }));
+  user_router.get('/users/:id', ({ params }) => ({ id: params.id }));
+  user_router.post('/users', async ({ body }) => ({ created: true }));
 
-  return userRouter;
+  return user_router;
 }
 
 // posts-router.ts
 import { router } from 'bunserve';
 
-export function createPostRouter() {
-  const postRouter = router();
+export function create_post_router() {
+  const post_router = router();
 
-  postRouter.get('/posts', () => ({ posts: [] }));
-  postRouter.get('/posts/:id', ({ params }) => ({ id: params.id }));
+  post_router.get('/posts', () => ({ posts: [] }));
+  post_router.get('/posts/:id', ({ params }) => ({ id: params.id }));
 
-  return postRouter;
+  return post_router;
 }
 
 // main.ts - Use sub-routers with the main app
 import { bunserve } from 'bunserve';
-import { createUserRouter } from './users-router';
-import { createPostRouter } from './posts-router';
+import { create_user_router } from './users-router';
+import { create_post_router } from './posts-router';
 
 const app = bunserve();
 
 // Create sub-routers
-const userRouter = createUserRouter();
-const postRouter = createPostRouter();
+const user_router = create_user_router();
+const post_router = create_post_router();
 
 // Mount sub-routers under specific paths
-app.use('/api', userRouter);
-app.use('/api', postRouter);
+app.use('/api', user_router);
+app.use('/api', post_router);
 ```
 
 ## Route Metadata
@@ -398,7 +398,7 @@ app.get('/api/users/:id', ({ params }) => {
 })
 
 // Or create a wrapper
-function documentedRoute<T>(
+function documented_route<T>(
   method: string,
   path: string,
   description: string,
@@ -409,7 +409,7 @@ function documentedRoute<T>(
 }
 
 app.get('/api/users/:id',
-  documentedRoute('GET', '/api/users/:id', 'Get user by ID',
+  documented_route('GET', '/api/users/:id', 'Get user by ID',
     ({ params }) => getUserById(params.id)
   )
 )
@@ -454,12 +454,12 @@ app.delete('/api/users/:id', ({ params, set }) => {
 })
 
 // Nested resources
-app.get('/api/users/:userId/posts', ({ params }) => {
+app.get('/api/users/:user_id/posts', ({ params }) => {
   // List user's posts
   return { posts: [] }
 })
 
-app.post('/api/users/:userId/posts', async ({ params, body }) => {
+app.post('/api/users/:user_id/posts', async ({ params, body }) => {
   // Create post for user
   return { post: body }
 })
@@ -498,9 +498,9 @@ app.get('/api/v*/users', ({ request }) => {
 ### Conditional Routes
 
 ```typescript
-const isDevelopment = process.env.NODE_ENV === 'development'
+const is_development = process.env.NODE_ENV === 'development'
 
-if (isDevelopment) {
+if (is_development) {
   app.get('/debug/routes', () => {
     // Return all registered routes (for debugging)
     return { routes: [] }
@@ -531,14 +531,14 @@ for (const resource of resources) {
 ```typescript
 // Good - use type-safe params
 app.get('/users/:id', ({ params }) => {
-  const userId = params.id; // Type-safe! TypeScript knows params.id exists
-  return { userId };
+  const user_id = params.id; // Type-safe! TypeScript knows params.id exists
+  return { user_id };
 });
 
 // Avoid - manual parsing loses type safety
 app.get('/users/:id', ({ request }) => {
   // Manual parsing, no type safety, error-prone
-  const userId = new URL(request.url).pathname.split('/')[2];
+  const user_id = new URL(request.url).pathname.split('/')[2];
 });
 ```
 

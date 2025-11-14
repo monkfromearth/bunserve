@@ -11,6 +11,8 @@ export interface ServerOptions {
   host?: string;
   /** Optional hook that runs before each request */
   before_each?: (request: Request) => void;
+  /** Maximum request body size in bytes (default: 1048576 = 1MB) */
+  max_body_size?: number;
 }
 
 /**
@@ -43,6 +45,8 @@ class ServerImpl implements Server {
   private default_host: string;
   /** Optional before_each hook */
   private before_each_hook?: (request: Request) => void;
+  /** Maximum request body size */
+  private max_body_size: number;
 
   /**
    * Create a new server instance.
@@ -52,6 +56,7 @@ class ServerImpl implements Server {
     this.default_port = options.port || 3000;
     this.default_host = options.host || 'localhost';
     this.before_each_hook = options.before_each;
+    this.max_body_size = options.max_body_size || 1048576; // Default: 1MB
   }
 
   // ==========================================
@@ -133,6 +138,7 @@ class ServerImpl implements Server {
       port: listen_port,
       hostname: listen_host,
       routes: routes as any, // Type cast needed due to Bun's internal types
+      maxRequestBodySize: this.max_body_size,
       // Fallback fetch for unmatched routes
       fetch: (_req: Request) => {
         return new Response('Not Found', { status: 404 });

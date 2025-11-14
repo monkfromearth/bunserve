@@ -33,7 +33,7 @@ my-app/
 │   ├── middleware/
 │   │   ├── auth.ts           # Authentication middleware
 │   │   ├── validate.ts       # Validation middleware
-│   │   └── rate-limit.ts     # Rate limiting middleware
+│   │   └── sessions.ts       # Session management middleware
 │   ├── services/
 │   │   ├── user-service.ts   # Business logic for users
 │   │   └── post-service.ts   # Business logic for posts
@@ -314,42 +314,41 @@ const require_auth = async ({ request, cookies }, next) => {
 };
 ```
 
-### Rate Limiting
+### Request Validation
 
 ```typescript
-// src/middleware/rate-limit.ts
+// src/middleware/validate.ts
 
-const rate_limits = new Map<string, { count: number; reset: number }>();
-
-export function rate_limit(max_requests: number, window_ms: number) {
-  return async ({ request, set }, next) => {
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    const now = Date.now();
-
-    const limit = rate_limits.get(ip);
-
-    if (limit && now < limit.reset) {
-      if (limit.count >= max_requests) {
-        set.status = 429;
-        set.headers['Retry-After'] = String(Math.ceil((limit.reset - now) / 1000));
-
-        throw new AppError('Too many requests', 429);
+export function validate_body(schema: any) {
+  return async ({ body, set }, next) => {
+    try {
+      // Validate body against schema (using your preferred validator)
+      if (!body || typeof body !== 'object') {
+        throw new Error('Invalid request body');
       }
-      limit.count++;
-    } else {
-      // New window
-      rate_limits.set(ip, {
-        count: 1,
-        reset: now + window_ms
-      });
-    }
 
-    await next();
+      // Add your validation logic here
+      // Example: check required fields
+      const required_fields = ['email', 'password'];
+      for (const field of required_fields) {
+        if (!(field in body)) {
+          throw new Error(`Missing required field: ${field}`);
+        }
+      }
+
+      await next();
+    } catch (error: any) {
+      set.status = 400;
+      throw new AppError(error.message, 400);
+    }
   };
 }
 
-// Usage: 100 requests per 15 minutes
-app.use(rate_limit(100, 15 * 60 * 1000));
+// Usage
+app.post('/users', [validate_body], async ({ body }) => {
+  // Body is validated
+  return { message: 'User created' };
+});
 ```
 
 ## Performance

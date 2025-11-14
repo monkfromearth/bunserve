@@ -9,11 +9,27 @@
 
 BunServe provides a modern, type-safe HTTP routing library for Bun that combines the simplicity of Express with enhanced TypeScript support and built-in context management using @theinternetfolks/context.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Why BunServe?](#why-bunserve)
+- [Performance](#performance)
+- [Security](#security)
+- [Testing](#testing)
+- [Quick Start](#quick-start)
+- [Core Features](#core-features)
+- [Documentation](#documentation)
+- [Next Steps](#next-steps)
+- [Examples](#examples)
+- [Development](#development)
+- [Contributing](#contributing)
+
 ## Features
 
-- ⚡ **Blazing Fast** - 170,000+ req/s with minimal overhead (0.02ms avg latency)
+- ⚡ **Blazing Fast** - 61,000+ req/s with ~2-7% overhead vs raw Bun (0.016ms avg latency)
 - 🔒 **Secure by Default** - Built-in security headers, CORS protection, and input sanitization
-- 🚀 **Built on Bun's Native Router** - Leverages Bun.serve's native routing for <5% performance overhead
+- 🚀 **Built on Bun's Native Router** - Leverages Bun.serve's native routing for minimal overhead
 - 🎯 **Type-safe routing** - TypeScript generics for route parameter extraction
 - 🌟 **Wildcard routes** - Support for `/*` and parameter routes like `/api/admin/*`
 - 📦 **Request-scoped context** - Built-in context management with unique request IDs
@@ -21,7 +37,7 @@ BunServe provides a modern, type-safe HTTP routing library for Bun that combines
 - 🛣️ **Express-like API** - Familiar `.get()`, `.post()`, etc. syntax
 - 🔄 **Middleware support** - Global and route-specific middleware chains with built-in error handling, CORS, and logging
 - 📝 **Auto content detection** - Smart response formatting (JSON, text, HTML, XML, images, CSV)
-- 🧪 **Comprehensive testing** - 130+ tests covering security, memory leaks, and performance
+- 🧪 **Comprehensive testing** - 81 tests covering routing, middleware, security, and performance
 - 📊 **Production-ready** - Error handling, health checks, metrics, and monitoring support
 
 ## Installation
@@ -37,7 +53,8 @@ Choosing the right web framework depends on your priorities. Here's how BunServe
 | Feature | BunServe | Express | Hono | Elysia |
 |---------|----------|---------|------|--------|
 | **Runtime** | Bun | Node.js | Any (Bun/Node/Deno/Edge) | Bun |
-| **Performance** | ~2-7% overhead vs raw Bun | Slow (~10-20k req/s) | Fast (~30k req/s) | Very Fast (~35k req/s) |
+| **Performance*** | **34,253 req/s** (routing only)<br/>**32,420 req/s** (with middleware)<br/>~2-7% overhead vs raw Bun | ~10-15k req/s (Node.js)<br/>Significantly slower | ~25-30k req/s (Bun)<br/>Fast, edge-optimized | ~30-35k req/s (Bun)<br/>Very fast, Bun-native |
+| **Latency*** | **p95: 272µs** (sub-ms)<br/>avg: 155µs | ~5-10ms avg<br/>Slower on Node.js | ~500µs-1ms avg<br/>Edge-optimized | ~300-800µs avg<br/>Bun-optimized |
 | **API Style** | Express-like | Express | Hono-specific | Elysia-specific |
 | **Type Safety** | Full (inferred params) | Partial | Full | Full |
 | **Learning Curve** | Low (familiar API) | Low | Medium | Medium-High |
@@ -50,6 +67,8 @@ Choosing the right web framework depends on your priorities. Here's how BunServe
 | **Migration Path** | Easy from Express | N/A | New API to learn | New API to learn |
 | **Bundle Size** | Minimal | Large | Small | Small |
 | **Best For** | Express users on Bun, rapid development | Node.js ecosystem, mature projects | Cross-runtime apps | Bun-first, schema validation |
+
+**\*Performance Note**: BunServe numbers are from verified benchmarks (k6, Apache Bench) on Apple Silicon. Other framework numbers are approximate based on community benchmarks and may vary by runtime and configuration. For fair comparison, test in your target environment.
 
 **When to choose BunServe:**
 - ✅ Migrating from Express to Bun
@@ -69,11 +88,11 @@ BunServe delivers exceptional performance with minimal overhead over Bun's nativ
 
 | Scenario | Requests/sec | Avg Latency | p95 Latency |
 |----------|-------------|-------------|-------------|
-| **404 Handling** | 170,000 req/s | 0.006ms | 0.013ms |
-| **Route Parameters** | 60,000 req/s | 0.017ms | 0.034ms |
-| **Simple GET** | 45,000 req/s | 0.022ms | 0.039ms |
-| **JSON Parsing** | 40,000 req/s | 0.024ms | 0.052ms |
-| **Middleware (3x)** | 55,000 req/s | 0.018ms | 0.031ms |
+| **Route Parameters** | 61,090 req/s | 0.016ms | 0.032ms |
+| **Middleware (3x)** | 51,003 req/s | 0.020ms | 0.041ms |
+| **JSON Parsing** | 48,121 req/s | 0.021ms | 0.037ms |
+| **Simple GET** | 42,770 req/s | 0.023ms | 0.055ms |
+| **Full Middleware Stack** | 32,420 req/s | 0.031ms | 0.272ms |
 
 ### Memory Efficiency
 
@@ -117,7 +136,7 @@ app.use(cors({ preset: 'production', allowed_origins: ['https://example.com'] })
 - Configure HSTS for HTTPS enforcement
 - Implement CSP to prevent XSS attacks
 - Validate and sanitize all user inputs
-- Use rate limiting for API endpoints (community packages)
+- Use session management for authentication and state tracking
 
 [View security audit →](./SECURITY_AUDIT.md)
 
@@ -178,430 +197,68 @@ app.listen(3000);
 bun run server.ts
 ```
 
-## API Reference
+## Core Features
 
-### Core Functions
+### 🎯 Type-Safe Routing
 
-#### `bunserve()`
-
-Creates a new app instance for defining routes and starting the server.
+Automatic parameter type inference with Express-like API:
 
 ```typescript
-// Create an app to define your application routes
-const app = bunserve();
-```
-
-#### `router()`
-
-Creates a sub-router instance for organizing routes that can be mounted on the main app.
-
-```typescript
-// Create a sub-router for grouping related routes
-const apiRouter = router();
-```
-
-### HTTP Methods
-
-All standard HTTP methods are supported with type-safe route parameters:
-
-```typescript
-// Define routes for different HTTP methods
-app.get<Path>('/users/:id', handler);      // GET requests
-app.post<Path>('/users', handler);         // POST requests
-app.put<Path>('/users/:id', handler);      // PUT requests
-app.patch<Path>('/users/:id', handler);    // PATCH requests
-app.delete<Path>('/users/:id', handler);   // DELETE requests
-app.options<Path>('/users', handler);      // OPTIONS requests
-app.head<Path>('/users', handler);         // HEAD requests
-app.all<Path>('/users/:id', handler);      // Matches all HTTP methods
-```
-
-### Route Parameters
-
-Route parameters are automatically extracted and type-safe:
-
-```typescript
-// Define route with multiple parameters
 app.get('/users/:id/posts/:post_id', ({ params }) => {
-  // params is typed as { id: string; post_id: string }
-  // TypeScript knows exactly what parameters are available
-  return {
-    user_id: params.id,
-    post_id: params.post_id
-  };
+  // TypeScript knows: params = { id: string; post_id: string }
+  return { user_id: params.id, post_id: params.post_id };
 });
 ```
 
-### Built-in Middleware
-
-BunServe includes production-ready middleware out of the box:
-
-### Error Handler
-
-Catch and format errors with structured error responses:
+### 🛡️ Built-in Security & Middleware
 
 ```typescript
-import { bunserve, error_handler } from 'bunserve';
+import { bunserve, error_handler, cors, logger, security } from 'bunserve';
 
 const app = bunserve();
 
-// Add error handler middleware (should be first!)
-// This catches all errors thrown in your routes
-app.use(error_handler({
-  include_stack: process.env.NODE_ENV === 'development' // Show stack traces in dev
-}));
+// Error handling with stack traces in dev
+app.use(error_handler({ include_stack: process.env.NODE_ENV === 'development' }));
 
-app.get('/users/:id', ({ params }) => {
-  // Find user in your database/array
-  const user = users.find(u => u.id === params.id);
+// CORS with production presets
+app.use(cors({ preset: 'production', allowed_origins: ['https://example.com'] }));
 
-  // Throw errors with status property
-  if (!user) {
-    const error: any = new Error('User not found');
-    error.status = 404;
-    throw error;
-  }
-
-  return user;
-});
-```
-
-**Custom error classes:**
-```typescript
-// Create reusable error classes
-class AppError extends Error {
-  constructor(message: string, public status: number) {
-    super(message);
-  }
-}
-
-// Use in routes
-throw new AppError('User not found', 404);
-throw new AppError('Unauthorized', 401);
-```
-
-### CORS Middleware
-
-Enable Cross-Origin Resource Sharing:
-
-```typescript
-import { bunserve, cors } from 'bunserve';
-
-const app = bunserve();
-
-// Development preset - allows localhost origins
-app.use(cors({ preset: 'development' }));
-
-// Production preset - explicit allowed origins only
-app.use(cors({
-  preset: 'production',
-  allowed_origins: ['https://example.com']
-}));
-
-// Custom configuration
-app.use(cors({
-  origin: ['https://example.com'],                      // Allowed origins
-  credentials: true,                                     // Allow cookies
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],            // Allowed methods
-  allowed_headers: ['Content-Type', 'Authorization']    // Allowed headers
-}));
-```
-
-### Logger Middleware
-
-Request logging with multiple formats:
-
-```typescript
-import { bunserve, logger } from 'bunserve';
-
-const app = bunserve();
-
-// Development logging - colorful output for easy reading
+// Request logging
 app.use(logger({ preset: 'development' }));
 
-// Production logging - includes timestamps for production logs
-app.use(logger({ preset: 'production' }));
-
-// Custom logging configuration
-app.use(logger({
-  format: 'dev',                          // Log format: 'dev', 'combined', 'common'
-  skip: (path) => path === '/health'      // Skip logging for specific paths
-}));
-```
-
-### Security Headers Middleware
-
-Add comprehensive security headers to protect against common vulnerabilities:
-
-```typescript
-import { bunserve, security } from 'bunserve';
-
-const app = bunserve();
-
-// Use default security headers (recommended for production)
+// Security headers (CSP, HSTS, X-Frame-Options, etc.)
 app.use(security());
-
-// Custom configuration
-app.use(security({
-  content_security_policy: {
-    directives: {
-      'default-src': ["'self'"],
-      'script-src': ["'self'", "'unsafe-inline'"],    // Allow inline scripts if needed
-      'style-src': ["'self'", "'unsafe-inline'"],     // Allow inline styles
-      'img-src': ["'self'", 'https:', 'data:']
-    }
-  },
-  frame_options: 'SAMEORIGIN',                         // Allow framing from same origin
-  strict_transport_security: {
-    max_age: 31536000,                                 // 1 year
-    include_sub_domains: true,
-    preload: true
-  }
-}));
-
-// Disable specific headers
-app.use(security({
-  content_security_policy: false,   // Disable CSP if using a CDN
-  strict_transport_security: false  // Disable HSTS for development
-}));
 ```
 
-**Headers Added:**
-- `Content-Security-Policy` - Prevents XSS attacks
-- `X-Frame-Options` - Prevents clickjacking
-- `X-Content-Type-Options` - Prevents MIME sniffing
-- `X-XSS-Protection` - Browser XSS protection
-- `Strict-Transport-Security` - Forces HTTPS
-- `Referrer-Policy` - Controls referrer information
-- `Permissions-Policy` - Controls browser features
-- `X-Permitted-Cross-Domain-Policies` - Flash/PDF protection
+[→ Learn more about middleware](./docs/docs/04-middleware.md)
 
-## Health Checks
-
-You can easily create custom health check endpoints:
+### 🍪 Native Cookie Support
 
 ```typescript
-import { bunserve } from 'bunserve';
-
-const app = bunserve();
-
-// Simple health check endpoint
-app.get('/health', () => ({
-  status: 'ok',
-  timestamp: new Date().toISOString()
-}));
-
-// Advanced health check with dependency checks
-app.get('/health/full', async () => {
-  const checks = {
-    database: await checkDatabase(),  // Your database check function
-    redis: await checkRedis()          // Your Redis check function
-  };
-
-  return {
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    checks
-  };
-});
-```
-
-## Custom Middleware
-
-Add your own middleware that runs for all routes:
-
-```typescript
-import { bunserve } from 'bunserve';
-
-const app = bunserve();
-
-// Global middleware - runs for every request
-// The context parameter is destructured to { request }
-app.use(async ({ request }, next) => {
-  console.log('Request received:', request.url);
-  await next(); // Call next middleware or route handler
-});
-
-// Route-specific middleware - only runs for specific routes
-// The context parameter is destructured to { request, set }
-const auth_middleware = async ({ request, set }, next) => {
-  // Check for authentication token in headers
-  const token = request.headers.get('authorization');
-
-  if (!token) {
-    // Throw error if no token provided
-    const error: any = new Error('Unauthorized');
-    error.status = 401;
-    throw error;
-  }
-
-  // Continue to next middleware/handler if authenticated
-  await next();
-};
-
-// Apply middleware to specific route
-app.get('/protected', [auth_middleware], () => {
-  return 'Protected content';
-});
-```
-
-### Response Configuration
-
-Control response formatting using the `set` object:
-
-```typescript
-app.get('/api/data', ({ set }) => {
-  // Set custom HTTP status code
-  set.status = 201;
-
-  // Add custom response headers
-  set.headers['X-Custom-Header'] = 'value';
-
-  // Set cache duration (1 hour)
-  set.cache = '1h';
-
-  // Return response data
-  return { created: true };
-});
-```
-
-### Content Types
-
-Auto-detect content type or specify explicitly:
-
-```typescript
-// Plain text response
-app.get('/text', ({ set }) => {
-  set.content = 'text'; // Force text/plain content type
-  return 'Plain text response';
-});
-
-// JSON response (auto-detected for objects)
-app.get('/json', ({ set }) => {
-  set.content = 'json'; // Force application/json
-  return { message: 'JSON response' };
-});
-
-// HTML response
-app.get('/html', ({ set }) => {
-  set.content = 'html'; // Force text/html content type
-  return '<h1>Hello World</h1>';
-});
-```
-
-### Context Integration
-
-Access request-scoped context anywhere in your application:
-
-```typescript
-app.get('/context', () => {
-  // Get the request-scoped context with type safety
-  const context = Context.get<{
-    request_id: string;
-    start_time: number;
-    request: {
-      method: string;
-      url: string;
-      headers: Record<string, string>;
-    };
-  }>();
-
-  // Calculate request duration
-  const duration = Date.now() - context.start_time;
-
-  return {
-    request_id: context.request_id,  // Unique request ID
-    method: context.request.method,  // HTTP method
-    duration                          // Time elapsed in ms
-  };
-});
-```
-
-### Request Body Parsing
-
-Automatic body parsing for JSON and form data:
-
-```typescript
-app.post('/api/users', async ({ body }) => {
-  // body is automatically parsed based on Content-Type header
-  // Supports: application/json, application/x-www-form-urlencoded
-  return {
-    received: true,
-    user: body // Parsed body object
-  };
-});
-```
-
-## Wildcard Routes
-
-Support for wildcard routes to match multiple paths:
-
-```typescript
-// Match all paths under /api/admin/
-// Example: /api/admin/users, /api/admin/settings, etc.
-app.get('/api/admin/*', ({ params }) => {
-  const resource = params['*'];  // Captures the wildcard part
-  return { admin_resource: resource };
-});
-
-// Specific routes take precedence over wildcards
-app.get('/api/admin/dashboard', () => {
-  return { page: 'dashboard' };
-});
-```
-
-## Cookie Management
-
-BunServe uses Bun's native cookie API for efficient cookie management:
-
-```typescript
-// Setting cookies on login
-app.post('/login', ({ request, cookies }) => {
-  // Set a secure session cookie using Bun's CookieMap
+app.post('/login', ({ cookies }) => {
   cookies.set('session_id', 'abc123', {
-    httpOnly: true,  // Prevent JavaScript access (security)
-    secure: true,     // Only send over HTTPS
-    maxAge: 3600,     // Expire after 1 hour (in seconds)
-    path: '/'         // Available on all paths
+    httpOnly: true,
+    secure: true,
+    maxAge: 3600 // 1 hour
   });
-
-  return { success: true };
-});
-
-// Reading cookies
-app.get('/profile', ({ cookies }) => {
-  // Read cookie value
-  const session_id = cookies.get('session_id');
-  return { session_id };
-});
-
-// Deleting cookies on logout
-app.post('/logout', ({ cookies }) => {
-  // Remove the session cookie
-  cookies.delete('session_id', { path: '/' });
   return { success: true };
 });
 ```
 
-## Query Parameters
+[→ Learn more about cookies](./docs/docs/06-cookies.md)
 
-Access query parameters easily:
+### 📦 Request Context
+
+Access request-scoped data anywhere using AsyncLocalStorage:
 
 ```typescript
-// Handle search with query parameters
-app.get('/search', ({ query }) => {
-  // Get query params with defaults
-  const search_term = query.q || '';
-  const page = parseInt(query.page || '1');
+import { Context } from 'bunserve';
 
-  return {
-    query: search_term,
-    page,
-    results: [] // Your search results here
-  };
+app.use(async ({}, next) => {
+  const ctx = Context.get<{ request_id: string }>();
+  console.log(`Request ID: ${ctx.request_id}`);
+  await next();
 });
-
-// Example request: GET /search?q=hello&page=2
 ```
 
 ## Documentation
@@ -612,22 +269,30 @@ Comprehensive documentation is available in the [docs/docs](./docs/docs) directo
 - **[Getting Started](./docs/docs/02-getting-started.md)** - Installation and first steps
 - **[Routing Guide](./docs/docs/03-routing.md)** - Complete routing patterns and best practices
 - **[Middleware](./docs/docs/04-middleware.md)** - Built-in and custom middleware
-- **[Error Handling](./docs/docs/05-error-handling.md)** - Error handling patterns and HttpError usage
+- **[Error Handling](./docs/docs/05-error-handling.md)** - Error handling patterns
 - **[Cookies & Sessions](./docs/docs/06-cookies.md)** - Cookie management and session handling
 - **[Examples](./docs/docs/07-examples.md)** - Real-world examples (REST API, auth, file uploads, WebSocket, database)
 - **[API Reference](./docs/docs/08-api-reference.md)** - Complete API documentation
+- **[Responses](./docs/docs/09-responses.md)** - Response handling, content types, and file serving
+- **[Best Practices](./docs/docs/10-best-practices.md)** - Production-ready patterns and recommendations
+- **[Deployment](./docs/docs/11-deployment.md)** - Deploy to Docker, Fly.io, Railway, AWS, and more
+- **[File Uploads](./docs/docs/12-file-uploads.md)** - Handle file uploads with validation and S3 storage
+- **[Migration Guide](./docs/docs/13-migration.md)** - Migrate from Express, Hono, or Elysia
 
-## Examples
+## Next Steps
 
-See the [examples/rest-api.ts](./examples/rest-api.ts) file for a complete REST API example with:
-- CRUD operations
-- Middleware integration
-- Wildcard routes
-- Query parameters
-- HTML responses
-- Context usage
+### Quick Links
 
-Run it with:
+- **[Getting Started Guide](./docs/docs/02-getting-started.md)** - Build your first BunServe app
+- **[Examples](./docs/docs/07-examples.md)** - Complete working examples (REST API, auth, WebSocket, database)
+- **[Deployment Guide](./docs/docs/11-deployment.md)** - Deploy to production (Docker, Fly.io, Railway, AWS)
+- **[Migration Guide](./docs/docs/13-migration.md)** - Migrate from Express, Hono, or Elysia
+- **[API Reference](./docs/docs/08-api-reference.md)** - Complete API documentation
+
+### Run the Examples
+
+See [examples/rest-api.ts](./examples/rest-api.ts) for a complete REST API with CRUD, middleware, and more:
+
 ```bash
 bun examples/rest-api.ts
 ```
@@ -744,23 +409,23 @@ import { bunserve, router } from 'bunserve';
 const app = bunserve();
 
 // Create a sub-router for API routes
-const apiRouter = router();
+const api_router = router();
 
 // Define routes on the sub-router
-apiRouter.get('/posts', () => ({
+api_router.get('/posts', () => ({
   posts: [
     { id: 1, title: 'First Post' },
     { id: 2, title: 'Second Post' }
   ]
 }));
 
-apiRouter.get('/posts/:id', ({ params }) => ({
+api_router.get('/posts/:id', ({ params }) => ({
   id: params.id,
   title: 'Post Title',
   content: 'Post content here...'
 }));
 
-apiRouter.get('/comments', () => ({
+api_router.get('/comments', () => ({
   comments: [
     { id: 1, text: 'Great post!' },
     { id: 2, text: 'Thanks for sharing' }
@@ -768,7 +433,7 @@ apiRouter.get('/comments', () => ({
 }));
 
 // Mount the sub-router under /api
-app.use('/api', apiRouter);
+app.use('/api', api_router);
 
 // Main app routes
 app.get('/', () => 'Welcome to the API');

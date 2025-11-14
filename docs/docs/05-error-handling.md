@@ -317,15 +317,15 @@ app.post('/api/users', async ({ body }) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       // Convert Zod errors to structured error with status property
-      const validationError: any = new Error('Validation failed');
-      validationError.status = 400;
-      validationError.details = {
+      const validation_error: any = new Error('Validation failed');
+      validation_error.status = 400;
+      validation_error.details = {
         errors: error.errors.map(e => ({
           field: e.path.join('.'),
           message: e.message
         }))
       };
-      throw validationError;
+      throw validation_error;
     }
     throw error;
   }
@@ -350,9 +350,9 @@ app.get('/user/:id', async ({ params }) => {
     return user
   } catch (error) {
     if (error.code === 'CONNECTION_ERROR') {
-      const dbError: any = new Error('Database connection failed');
-      dbError.status = 500;
-      throw dbError;
+      const db_error: any = new Error('Database connection failed');
+      db_error.status = 500;
+      throw db_error;
     }
 
     throw error
@@ -369,13 +369,13 @@ app.post('/api/users', async ({ body }) => {
     return user
   } catch (error) {
     if (error.code === 'UNIQUE_VIOLATION') {
-      const conflictError: any = new Error('Email already exists');
-      conflictError.status = 409;
-      conflictError.details = {
+      const conflict_error: any = new Error('Email already exists');
+      conflict_error.status = 409;
+      conflict_error.details = {
         field: 'email',
         value: body.email
       };
-      throw conflictError;
+      throw conflict_error;
     }
 
     throw error
@@ -400,13 +400,13 @@ const authenticate = async ({ request, set }, next) => {
     Context.set({ user })
     await next()
   } catch (error) {
-    const authError: any = new Error('Invalid or expired token');
-    authError.status = 401;
-    throw authError;
+    const auth_error: any = new Error('Invalid or expired token');
+    auth_error.status = 401;
+    throw auth_error;
   }
 }
 
-const requireAdmin = async ({}, next) => {
+const require_admin = async ({}, next) => {
   const { user } = Context.get<{ user: User }>()
 
   if (!user.is_admin) {
@@ -418,7 +418,7 @@ const requireAdmin = async ({}, next) => {
   await next()
 }
 
-app.get('/admin/users', [authenticate, requireAdmin], () => {
+app.get('/admin/users', [authenticate, require_admin], () => {
   return { users: [] }
 })
 ```
@@ -466,7 +466,7 @@ app.get('/user/:id', async ({ params }) => {
 ### Retry Logic
 
 ```typescript
-async function fetchWithRetry(url: string, retries = 3): Promise<any> {
+async function fetch_with_retry(url: string, retries = 3): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
       return await fetch(url)
@@ -479,12 +479,12 @@ async function fetchWithRetry(url: string, retries = 3): Promise<any> {
 
 app.get('/external-data', async () => {
   try {
-    const data = await fetchWithRetry('https://api.example.com/data')
+    const data = await fetch_with_retry('https://api.example.com/data')
     return data
   } catch (error) {
-    const fetchError: any = new Error('Failed to fetch external data');
-    fetchError.status = 500;
-    throw fetchError;
+    const fetch_error: any = new Error('Failed to fetch external data');
+    fetch_error.status = 500;
+    throw fetch_error;
   }
 })
 ```
@@ -613,10 +613,10 @@ const unprocessableError: any = new Error('Unable to process request');
 unprocessableError.status = 422;
 throw unprocessableError;
 
-// 429 Too Many Requests - Rate limit exceeded
-const rateLimitError: any = new Error('Rate limit exceeded');
-rateLimitError.status = 429;
-throw rateLimitError;
+// 429 Too Many Requests - Too many concurrent requests
+const tooManyRequestsError: any = new Error('Too many concurrent requests');
+tooManyRequestsError.status = 429;
+throw tooManyRequestsError;
 ```
 
 ### Server Errors (5xx)

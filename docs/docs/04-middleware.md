@@ -501,6 +501,277 @@ app.use(security({
 }));
 ```
 
+### Static Files Middleware
+
+Serve static files efficiently with automatic MIME type detection and caching:
+
+```typescript
+import { bunserve, static_files } from 'bunserve';
+
+const app = bunserve();
+
+// Serve files from ./public directory
+app.use(static_files({ root: './public' }));
+
+// Now files in ./public are accessible:
+// http://localhost:3000/index.html -> ./public/index.html
+// http://localhost:3000/css/style.css -> ./public/css/style.css
+// http://localhost:3000/images/logo.png -> ./public/images/logo.png
+```
+
+#### Static Files Options
+
+```typescript
+app.use(static_files({
+  // Root directory to serve files from (required)
+  root: './public',
+
+  // URL prefix to strip before looking up files
+  prefix: '/static',
+  // http://localhost:3000/static/image.png -> ./public/image.png
+
+  // Cache-Control header duration
+  cache: '7d',  // 7 days (supports: s, m, h, d)
+
+  // Index file for directory requests
+  index: 'index.html'  // Default: 'index.html'
+}));
+```
+
+#### Common Static Files Patterns
+
+```typescript
+// Serve assets with URL prefix and caching
+app.use(static_files({
+  root: './public/assets',
+  prefix: '/assets',
+  cache: '30d'  // Cache for 30 days
+}));
+
+// Serve uploads with shorter cache
+app.use(static_files({
+  root: './uploads',
+  prefix: '/uploads',
+  cache: '1h'  // Cache for 1 hour
+}));
+
+// Multiple static directories with different settings
+app.use(static_files({
+  root: './public',
+  cache: '7d'
+}));
+
+app.use(static_files({
+  root: './dist',
+  prefix: '/app',
+  cache: '1d'
+}));
+```
+
+#### Security Features
+
+The static files middleware includes built-in security:
+
+```typescript
+// Path traversal protection
+// Request: /../../etc/passwd
+// Result: 403 Forbidden
+
+// Only GET and HEAD methods allowed
+// POST /style.css -> passes through to next middleware
+
+// Automatic MIME type detection
+// .html -> text/html
+// .css -> text/css
+// .js -> application/javascript
+// .json -> application/json
+// .png -> image/png
+// ...and more
+```
+
+### Sessions Middleware
+
+Manage user sessions with cookie-based authentication:
+
+```typescript
+import { bunserve, sessions } from 'bunserve';
+
+const app = bunserve();
+
+// Basic session management
+app.use(sessions({
+  secret: process.env.SESSION_SECRET,  // Required for production
+  max_age: 24 * 60 * 60 * 1000        // 24 hours
+}));
+
+// Access session in routes
+app.post('/login', ({ request, body }) => {
+  const session = (request as any).session;
+
+  // Store user data in session
+  session.data.user_id = user.id;
+  session.data.username = user.username;
+  session.data.role = user.role;
+
+  return { message: 'Logged in successfully' };
+});
+
+app.get('/profile', ({ request }) => {
+  const session = (request as any).session;
+
+  if (!session.data.user_id) {
+    const error: any = new Error('Not authenticated');
+    error.status = 401;
+    throw error;
+  }
+
+  return {
+    user_id: session.data.user_id,
+    username: session.data.username
+  };
+});
+```
+
+#### Session Options
+
+```typescript
+import { MemorySessionStore } from 'bunserve';
+
+app.use(sessions({
+  // Secret for signing sessions (required in production)
+  secret: process.env.SESSION_SECRET,
+
+  // Session cookie name
+  cookie_name: 'session_id',  // Default: 'session_id'
+
+  // Session max age in milliseconds
+  max_age: 7 * 24 * 60 * 60 * 1000,  // 7 days
+
+  // Session store (default: in-memory)
+  store: new MemorySessionStore(),
+
+  // Cookie options
+  cookie_options: {
+    path: '/',           // Cookie path
+    domain: undefined,   // Cookie domain
+    http_only: true,     // HTTP only (recommended)
+    secure: false,       // HTTPS only (enable in production)
+    same_site: 'lax'     // 'strict', 'lax', or 'none'
+  },
+
+  // Auto-cleanup interval (0 to disable)
+  cleanup_interval: 60 * 60 * 1000  // 1 hour
+}));
+```
+
+#### Custom Session Store
+
+Implement your own storage backend:
+
+```typescript
+import { SessionStore, Session } from 'bunserve';
+
+// Redis session store example
+class RedisSessionStore implements SessionStore {
+  constructor(private redis: any) {}
+
+  async get(session_id: string): Promise<Session | null> {
+    const data = await this.redis.get(`session:${session_id}`);
+    return data ? JSON.parse(data) : null;
+  }
+
+  async set(session_id: string, session: Session): Promise<void> {
+    await this.redis.set(
+      `session:${session_id}`,
+      JSON.stringify(session),
+      'EX',
+      86400  // 24 hours in seconds
+    );
+  }
+
+  async delete(session_id: string): Promise<void> {
+    await this.redis.del(`session:${session_id}`);
+  }
+
+  async cleanup(): Promise<void> {
+    // Redis handles TTL automatically
+  }
+}
+
+// Use custom store
+const redis_store = new RedisSessionStore(redis_client);
+app.use(sessions({
+  secret: process.env.SESSION_SECRET,
+  store: redis_store
+}));
+```
+
+#### CSRF Protection
+
+Use built-in CSRF helpers for form protection:
+
+```typescript
+import { generate_csrf_token, validate_csrf_token } from 'bunserve';
+
+// Generate token for forms
+app.get('/form', ({ request }) => {
+  const session = (request as any).session;
+  const csrf_token = generate_csrf_token(session);
+  session.data.csrf_token = csrf_token;
+
+  return { csrf_token };
+});
+
+// Validate token on submission
+app.post('/submit', ({ request, body }) => {
+  const session = (request as any).session;
+
+  if (!validate_csrf_token(session, body.csrf_token)) {
+    const error: any = new Error('Invalid CSRF token');
+    error.status = 403;
+    throw error;
+  }
+
+  // Process form safely
+  return { message: 'Form submitted' };
+});
+```
+
+#### Session Logout
+
+Destroy sessions on logout:
+
+```typescript
+import { destroy_session } from 'bunserve';
+
+app.post('/logout', async ({ request, cookies }, next) => {
+  const session = (request as any).session;
+  const store = session_store;  // Your session store instance
+
+  await destroy_session(session, cookies, store);
+
+  return { message: 'Logged out successfully' };
+});
+```
+
+#### Production Session Setup
+
+```typescript
+// Production-ready session configuration
+app.use(sessions({
+  secret: process.env.SESSION_SECRET,
+  max_age: 7 * 24 * 60 * 60 * 1000,  // 7 days
+  cookie_options: {
+    http_only: true,    // Prevent JavaScript access
+    secure: true,        // HTTPS only in production
+    same_site: 'strict', // Strict CSRF protection
+    domain: '.example.com'  // Share across subdomains
+  },
+  store: new RedisSessionStore(redis),  // Persistent storage
+  cleanup_interval: 60 * 60 * 1000      // Cleanup every hour
+}));
+```
+
 ## Route-Specific Middleware
 
 Apply middleware to specific routes:
@@ -508,7 +779,7 @@ Apply middleware to specific routes:
 ```typescript
 // Authentication middleware that checks for auth token
 // Note: The first parameter is the context object - we destructure request and set from it
-const requireAuth = async ({ request, set }, next) => {
+const require_auth = async ({ request, set }, next) => {
   const token = request.headers.get('authorization');
 
   if (!token) {
@@ -524,16 +795,16 @@ const requireAuth = async ({ request, set }, next) => {
 // Public route - no middleware required
 app.get('/public', () => 'Public data');
 // Private route - requires authentication
-app.get('/private', [requireAuth], () => 'Private data');
+app.get('/private', [require_auth], () => 'Private data');
 
 // Multiple middleware - executes in array order
-const requireAdmin = async ({ request, set }, next) => {
+const require_admin = async ({ request, set }, next) => {
   // Check if user is admin...
   await next();
 };
 
 // Admin route - requires both auth and admin middleware
-app.get('/admin', [requireAuth, requireAdmin], () => {
+app.get('/admin', [require_auth, require_admin], () => {
   return 'Admin data';
 });
 ```
@@ -580,44 +851,16 @@ app.get('/profile', [authenticate], () => {
 });
 ```
 
-### Rate Limiting Middleware
+### Request ID Middleware
 
 ```typescript
-// In-memory store for rate limit tracking
-const rate_limiter = new Map<string, { count: number; reset: number }>();
-
-// Rate limiting middleware factory
-const rate_limit = (max_requests: number, window_ms: number) => {
-  return async ({ request, set }, next) => {
-    // Get client IP from headers
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    const now = Date.now();
-
-    const limit = rate_limiter.get(ip);
-
-    if (limit && now < limit.reset) {
-      // Within the time window
-      if (limit.count >= max_requests) {
-        // Rate limit exceeded
-        set.status = 429;
-        set.headers['Retry-After'] = String(Math.ceil((limit.reset - now) / 1000));
-        return { error: 'Too many requests' };
-      }
-      limit.count++;
-    } else {
-      // New time window - reset counter
-      rate_limiter.set(ip, {
-        count: 1,
-        reset: now + window_ms
-      });
-    }
-
-    await next();
-  };
+// Add unique request ID to each request for tracing
+const request_id = async ({ set }, next) => {
+  set.headers['X-Request-ID'] = crypto.randomUUID();
+  await next();
 };
 
-// Apply rate limit: 100 requests per 15 minutes
-app.use(rate_limit(100, 15 * 60 * 1000));
+app.use(request_id);
 ```
 
 ### Caching Middleware
@@ -801,10 +1044,7 @@ app.use(async ({ set }, next) => {
   await next()
 })
 
-// 5. Rate limiting
-app.use(rate_limit(100, 15 * 60 * 1000))
-
-// 6. Authentication (route-specific)
+// 5. Authentication (route-specific)
 const authenticate = async ({ request, set }, next) => {
   const token = request.headers.get('authorization')
   if (!token) {

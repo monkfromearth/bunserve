@@ -1,0 +1,26 @@
+{
+  "name": "bunserve-examples",
+  "version": "1.0.0",
+  "description": "Examples for BunServe - Express-like routing for Bun",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "01-basic": "bun run 01-basic-server.ts",
+    "02-rest-api": "bun run 02-rest-api.ts",
+    "03-auth": "bun run 03-authentication.ts",
+    "04-uploads": "bun run 04-file-uploads.ts",
+    "05-middleware": "bun run 05-middleware-stack.ts",
+    "06-health": "bun run 06-health-checks.ts",
+    "07-websockets": "bun run 07-websockets.ts",
+    "08-database": "bun run 08-database.ts",
+    "09-routers": "bun run 09-sub-routers.ts",
+    "10-static": "bun run 10-static-files.ts",
+    "11-sessions": "bun run 11-sessions.ts"
+  },
+  "dependencies": {
+    "bunserve": "^0.5.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

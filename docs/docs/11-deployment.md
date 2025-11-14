@@ -28,7 +28,7 @@ Before deploying to production, ensure you have:
 - [ ] Configure CORS with specific origins (not `*`)
 - [ ] Enable security headers middleware
 - [ ] Remove stack traces from error responses
-- [ ] Implement rate limiting
+- [ ] Use session middleware for authentication
 - [ ] Validate and sanitize all inputs
 - [ ] Use HTTP-only cookies for sensitive data
 - [ ] Enable HSTS (Strict-Transport-Security)
@@ -493,8 +493,8 @@ LOG_LEVEL=info
 
 # Optional
 SENTRY_DSN=https://your-sentry-dsn
-RATE_LIMIT_MAX=100
-RATE_LIMIT_WINDOW_MS=900000
+SESSION_SECRET=your-secret-key-here
+SESSION_MAX_AGE=86400000
 
 # Feature flags
 ENABLE_DEBUG=false

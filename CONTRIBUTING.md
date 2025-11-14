@@ -125,7 +125,7 @@ test('route with multiple parameters', async () => {
 Use clear, descriptive commit messages:
 
 ```
-feat: add rate limiting middleware
+feat: add session management middleware
 fix: correct wildcard route precedence
 docs: update middleware examples
 test: add edge cases for query parameters
@@ -174,20 +174,20 @@ Prefix types:
 
 ```markdown
 ## Description
-Adds rate limiting middleware to prevent abuse.
+Adds static file serving middleware for serving assets efficiently.
 
 ## Motivation
-Users requested built-in rate limiting to avoid implementing it themselves.
+Users need a simple way to serve static files without additional libraries.
 
 ## Changes
-- Added `rate_limit()` middleware function
-- Added tests for rate limiting
+- Added `static_files()` middleware function
+- Added tests for static file serving
 - Updated middleware documentation
-- Added rate limiting example
+- Added static files example
 
 ## Testing
 - All existing tests pass
-- Added 5 new tests for rate limiting
+- Added 20+ new tests for static files
 - Tested with example application
 
 ## Breaking Changes
@@ -204,7 +204,7 @@ None
 
 ### High Priority
 
-- Additional middleware (compression, static files, rate limiting)
+- Additional middleware (compression, validation helpers)
 - Performance optimizations
 - More examples (GraphQL, microservices, etc.)
 - Bug fixes

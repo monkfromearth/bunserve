@@ -168,7 +168,7 @@ console.error('Route execution error:', error);
 ### Medium Priority
 1. Document open redirect risks in redirect feature
 2. Add security best practices guide for users
-3. Consider adding rate limiting middleware
+3. ✅ Added static file serving middleware with path traversal protection
 
 ### Low Priority
 1. Consider using crypto.randomUUID() for request IDs if ever used for security
@@ -253,7 +253,7 @@ BunServe is a well-designed framework with excellent security fundamentals. All 
 2. Configure CSP directives specific to your application
 3. Enable HSTS with preload for production domains
 4. Use `error_handler()` to prevent stack trace leakage
-5. Implement rate limiting using community packages for API protection
+5. Use `sessions()` middleware for secure authentication and state management
 6. Validate and sanitize all user inputs in your application code
 7. Use HTTPS in production (required for HSTS)
 

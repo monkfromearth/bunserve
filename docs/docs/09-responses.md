@@ -335,12 +335,12 @@ app.post('/users', ({ body, set }) => {
   // Status: 409
 });
 
-// 429 Too Many Requests - rate limit exceeded
+// 429 Too Many Requests - server overloaded
 app.get('/api/data', ({ set }) => {
-  if (isRateLimited()) {
+  if (isServerOverloaded()) {
     set.status = 429;
     set.headers['Retry-After'] = '60';  // Retry after 60 seconds
-    return { error: 'Rate limit exceeded' };
+    return { error: 'Server temporarily overloaded' };
   }
   // Status: 429
 });

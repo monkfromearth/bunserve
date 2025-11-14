@@ -49,12 +49,12 @@ import { bunserve, router } from 'bunserve';
 const app = bunserve();
 
 // Create a sub-router for user routes
-const userRouter = router();
-userRouter.get('/users', () => ({ users: [] }));
-userRouter.get('/users/:id', ({ params }) => ({ id: params.id }));
+const user_router = router();
+user_router.get('/users', () => ({ users: [] }));
+user_router.get('/users/:id', ({ params }) => ({ id: params.id }));
 
 // Mount the sub-router under /api path
-app.use('/api', userRouter);
+app.use('/api', user_router);
 
 app.listen(3000);
 ```
@@ -211,9 +211,9 @@ interface BunRequest<TPath extends string> extends Request {
 Automatically extracted route parameters (type-safe).
 
 ```typescript
-type RouteParams<'/users/:userId/posts/:postId'> = {
-  userId: string
-  postId: string
+type RouteParams<'/users/:user_id/posts/:post_id'> = {
+  user_id: string
+  post_id: string
 }
 
 type RouteParams<'/api/*'> = {
@@ -470,6 +470,173 @@ interface LoggerOptions {
 }
 ```
 
+### `static_files(options)`
+
+Static file serving middleware with automatic MIME type detection and caching.
+
+**Parameters**:
+- `options: StaticOptions` - Static file configuration (required)
+
+**Returns**: `Middleware`
+
+**Example**:
+```typescript
+// Serve static files from ./public directory
+import { static_files } from 'bunserve';
+
+app.use(static_files({
+  root: './public',           // Root directory (required)
+  prefix: '/static',          // URL prefix to strip (optional)
+  cache: '7d',                // Cache duration (optional)
+  index: 'index.html'         // Index file name (optional)
+}));
+```
+
+**StaticOptions**:
+```typescript
+interface StaticOptions {
+  root: string           // Root directory to serve files from (required)
+  prefix?: string        // URL prefix to strip before file lookup
+  cache?: string         // Cache-Control duration (e.g., '1h', '7d', '30d')
+  index?: string         // Index file for directory requests (default: 'index.html')
+}
+```
+
+**Features**:
+- Automatic MIME type detection for common file types
+- Path traversal protection (blocks `..` in paths)
+- Only serves GET and HEAD requests
+- Cache-Control headers with configurable duration
+- Directory index file support
+
+### `sessions(options)`
+
+Session management middleware for cookie-based user sessions.
+
+**Parameters**:
+- `options: SessionOptions` - Session configuration (required)
+
+**Returns**: `Middleware`
+
+**Example**:
+```typescript
+// Basic session management
+import { sessions, MemorySessionStore } from 'bunserve';
+
+app.use(sessions({
+  secret: process.env.SESSION_SECRET,      // Secret for signing (required)
+  max_age: 24 * 60 * 60 * 1000,           // 24 hours in milliseconds
+  store: new MemorySessionStore(),        // Session store (optional)
+  cookie_name: 'session_id',              // Cookie name (optional)
+  cookie_options: {                        // Cookie options (optional)
+    http_only: true,
+    secure: true,
+    same_site: 'strict'
+  }
+}));
+
+// Access session in routes
+app.get('/profile', ({ request }) => {
+  const session = (request as any).session;
+  return { user_id: session.data.user_id };
+});
+```
+
+**SessionOptions**:
+```typescript
+interface SessionOptions {
+  secret?: string                    // Secret key for signing sessions
+  cookie_name?: string               // Session cookie name (default: 'session_id')
+  max_age?: number                   // Session max age in milliseconds
+  store?: SessionStore               // Session storage backend
+  cookie_options?: {                 // Cookie configuration
+    path?: string
+    domain?: string
+    http_only?: boolean
+    secure?: boolean
+    same_site?: 'strict' | 'lax' | 'none'
+  }
+  cleanup_interval?: number          // Auto-cleanup interval in ms
+}
+```
+
+**Session Interface**:
+```typescript
+interface Session {
+  id: string                         // Unique session ID
+  data: Record<string, any>          // Session data storage
+  created_at: number                 // Creation timestamp
+  last_access: number                // Last access timestamp
+}
+```
+
+**SessionStore Interface**:
+```typescript
+interface SessionStore {
+  get(session_id: string): Promise<Session | null>
+  set(session_id: string, session: Session): Promise<void>
+  delete(session_id: string): Promise<void>
+  cleanup?(): Promise<void>
+}
+```
+
+**Helper Functions**:
+- `generate_csrf_token(session: Session): string` - Generate CSRF token
+- `validate_csrf_token(session: Session, token: string): boolean` - Validate CSRF token
+- `destroy_session(session: Session, cookies: CookieMap, store: SessionStore): Promise<void>` - Destroy session
+
+### `security(options?)`
+
+Security headers middleware for protecting against common web vulnerabilities.
+
+**Parameters**:
+- `options?: SecurityHeadersOptions` - Security configuration (optional)
+
+**Returns**: `Middleware`
+
+**Example**:
+```typescript
+// Use default security headers
+import { security } from 'bunserve';
+
+app.use(security());
+
+// Custom security configuration
+app.use(security({
+  content_security_policy: {
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'"]
+    }
+  },
+  strict_transport_security: {
+    max_age: 31536000,
+    include_sub_domains: true
+  }
+}));
+```
+
+**SecurityHeadersOptions**:
+```typescript
+interface SecurityHeadersOptions {
+  content_security_policy?: {
+    directives?: Record<string, string[]>
+  } | false
+  frame_options?: 'DENY' | 'SAMEORIGIN' | false
+  content_type_options?: 'nosniff' | false
+  xss_protection?: string | false
+  strict_transport_security?: {
+    max_age?: number
+    include_sub_domains?: boolean
+    preload?: boolean
+  } | false
+  referrer_policy?: string | false
+  permissions_policy?: Record<string, string[]> | false
+  cross_domain_policy?: string | false
+  remove_powered_by?: boolean
+}
+```
+
 ## Error Handling
 
 BunServe's error handler catches any Error with a `.status` property. You can throw errors in several ways:
@@ -641,12 +808,12 @@ BunServe is fully typed with TypeScript:
 
 ```typescript
 // TypeScript infers the parameter types automatically from the route path
-app.get('/users/:userId/posts/:postId', ({ params }) => {
-  // params is typed as { userId: string; postId: string }
-  const userId: string = params.userId;
-  const postId: string = params.postId;
+app.get('/users/:user_id/posts/:post_id', ({ params }) => {
+  // params is typed as { user_id: string; post_id: string }
+  const user_id: string = params.user_id;
+  const post_id: string = params.post_id;
 
-  return { userId, postId };
+  return { user_id, post_id };
 });
 ```
 
