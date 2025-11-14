@@ -318,8 +318,10 @@ class RouterImpl implements Router {
       if (!path_groups.has(registration.path)) {
         path_groups.set(registration.path, new Map());
       }
-      const methods = path_groups.get(registration.path)!;
-      methods.set(registration.method, registration);
+      const methods = path_groups.get(registration.path);
+      if (methods) {
+        methods.set(registration.method, registration);
+      }
     }
 
     // Build Bun routes
