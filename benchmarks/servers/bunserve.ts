@@ -11,13 +11,19 @@ app.get('/users/:id', ({ params }) => ({
   email: 'john@example.com'
 }));
 
-app.post('/users', async ({ request }) => {
-  try {
-    const body = await request.json();
-    return { success: true, data: body };
-  } catch (error) {
-    return { success: true, data: {} };
-  }
+app.post('/users', async ({ body }) => {
+  // Handle null/empty bodies gracefully
+  return { success: true, data: body || {} };
+});
+
+app.post('/upload', async ({ body }) => {
+  // Handle file uploads with multipart/form-data
+  const file = body.get?.('file');
+  return {
+    success: true,
+    fileName: file?.name || null,
+    fileSize: file?.size || 0
+  };
 });
 
 app.listen(3000);

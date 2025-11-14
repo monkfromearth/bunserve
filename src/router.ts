@@ -116,7 +116,7 @@ class RouterImpl implements Router {
 
     // Parse body if present
     let body: any = null;
-    const content_type = request.headers.get('content-type');
+    const content_type = request.headers.get('content-type')?.toLowerCase();
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       if (content_type?.includes('application/json')) {
@@ -211,8 +211,13 @@ class RouterImpl implements Router {
       }
     } else if (typeof set.content === 'object' && set.content.type === 'csv') {
       headers['Content-Type'] = 'text/csv';
+      // Sanitize filename to prevent header injection
+      // Remove everything after first newline and escape quotes
+      const sanitized_filename = set.content.filename
+        .split(/[\r\n]/)[0]
+        .replace(/"/g, '\\"');
       headers['Content-Disposition'] =
-        `attachment; filename="${set.content.filename}"`;
+        `attachment; filename="${sanitized_filename}"`;
       body = String(result);
     } else {
       // Fallback

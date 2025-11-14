@@ -34,8 +34,19 @@ const PRESETS: Record<string, Partial<CorsOptions>> = {
     max_age: 86400
   },
   development: {
-    origin: (origin: string) =>
-      origin.includes('localhost') || origin.includes('127.0.0.1'),
+    origin: (origin: string) => {
+      try {
+        const url = new URL(origin);
+        // More secure: exact hostname matching instead of .includes()
+        return (
+          url.hostname === 'localhost' ||
+          url.hostname === '127.0.0.1' ||
+          url.hostname === '[::1]' // IPv6 localhost
+        );
+      } catch {
+        return false;
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowed_headers: ['Content-Type', 'Authorization'],
     credentials: true,

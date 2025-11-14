@@ -155,6 +155,75 @@ test('Malformed JSON in request body returns 400', async () => {
   expect(response.status).toBeGreaterThanOrEqual(200);
 });
 
+test('Empty POST body with JSON content type returns null', async () => {
+  const app = bunserve();
+
+  app.post('/data', ({ body }) => {
+    return {
+      received: true,
+      bodyIsNull: body === null,
+      bodyType: typeof body
+    };
+  });
+
+  const response = await app.fetch(
+    new Request('http://localhost/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: ''
+    })
+  );
+
+  expect(response.status).toBe(200);
+  const data = await response.json();
+  expect(data.bodyIsNull).toBe(true);
+});
+
+test('Empty POST body without content type', async () => {
+  const app = bunserve();
+
+  app.post('/data', ({ body }) => {
+    return {
+      bodyIsNull: body === null || body === '',
+      body
+    };
+  });
+
+  const response = await app.fetch(
+    new Request('http://localhost/data', {
+      method: 'POST',
+      body: ''
+    })
+  );
+
+  expect(response.status).toBe(200);
+  const data = await response.json();
+  // Empty body should be handled gracefully
+  expect(data.bodyIsNull).toBe(true);
+});
+
+test('POST with no body at all', async () => {
+  const app = bunserve();
+
+  app.post('/data', ({ body }) => {
+    return {
+      bodyIsNull: body === null,
+      body
+    };
+  });
+
+  const response = await app.fetch(
+    new Request('http://localhost/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+  );
+
+  expect(response.status).toBe(200);
+  const data = await response.json();
+  expect(data.bodyIsNull).toBe(true);
+});
+
 test('Request with no Content-Type header', async () => {
   const app = bunserve();
 
