@@ -17,112 +17,121 @@ Complete, real-world examples demonstrating BunServe features.
 Complete CRUD API with in-memory storage:
 
 ```typescript
-import { create_router, create_server, error_handler, HttpError, logger } from 'bunserve'
+// Import necessary BunServe utilities for REST API
+import { create_router, create_server, error_handler, HttpError, logger } from 'bunserve';
 
-// Data store
-const users = new Map<string, User>()
+// Data store - in-memory Map for fast lookups
+const users = new Map<string, User>();
 
 interface User {
-  id: string
-  name: string
-  email: string
-  created_at: string
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
 }
 
-const router = create_router()
+const router = create_router();
 
-// Middleware
-router.use(error_handler())
-router.use(logger({ format: 'dev' }))
+// Middleware - runs for all routes
+// Error handler catches and formats all errors
+router.use(error_handler());
+// Logger logs all requests in dev format
+router.use(logger({ format: 'dev' }));
 
-// List all users
+// List all users with count
 router.get('/api/users', () => {
   return {
     users: Array.from(users.values()),
     total: users.size
-  }
-})
+  };
+});
 
 // Get user by ID
 router.get('/api/users/:id', ({ params }) => {
-  const user = users.get(params.id)
+  const user = users.get(params.id);
 
   if (!user) {
-    throw HttpError.not_found('User not found')
+    // Throw 404 if user not found
+    throw HttpError.not_found('User not found');
   }
 
-  return user
-})
+  return user;
+});
 
-// Create user
+// Create user with validation
 router.post('/api/users', async ({ body, set }) => {
-  // Validation
+  // Validation - check required fields
   if (!body.name || !body.email) {
-    throw HttpError.bad_request('Name and email are required')
+    throw HttpError.bad_request('Name and email are required');
   }
 
+  // Validate email format with regex
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
-    throw HttpError.bad_request('Invalid email format')
+    throw HttpError.bad_request('Invalid email format');
   }
 
-  const id = crypto.randomUUID()
+  // Create new user with generated ID
+  const id = crypto.randomUUID();
   const user: User = {
     id,
     name: body.name,
     email: body.email,
     created_at: new Date().toISOString()
-  }
+  };
 
-  users.set(id, user)
-  set.status = 201
+  users.set(id, user);
+  set.status = 201; // 201 Created
 
-  return user
-})
+  return user;
+});
 
-// Update user
+// Update user - partial update
 router.put('/api/users/:id', async ({ params, body }) => {
-  const user = users.get(params.id)
+  const user = users.get(params.id);
 
   if (!user) {
-    throw HttpError.not_found('User not found')
+    throw HttpError.not_found('User not found');
   }
 
-  if (body.name) user.name = body.name
-  if (body.email) user.email = body.email
+  // Update only provided fields
+  if (body.name) user.name = body.name;
+  if (body.email) user.email = body.email;
 
-  users.set(params.id, user)
+  users.set(params.id, user);
 
-  return user
-})
+  return user;
+});
 
 // Delete user
 router.delete('/api/users/:id', ({ params, set }) => {
   if (!users.delete(params.id)) {
-    throw HttpError.not_found('User not found')
+    throw HttpError.not_found('User not found');
   }
 
-  set.status = 204
-  return null
-})
+  set.status = 204; // 204 No Content
+  return null;
+});
 
-// Search users
+// Search users by name or email
 router.get('/api/users/search', ({ query }) => {
-  const term = (query.q || '').toLowerCase()
+  const term = (query.q || '').toLowerCase();
 
+  // Filter users by search term
   const results = Array.from(users.values()).filter(user =>
     user.name.toLowerCase().includes(term) ||
     user.email.toLowerCase().includes(term)
-  )
+  );
 
   return {
     query: term,
     results,
     count: results.length
-  }
-})
+  };
+});
 
-const server = create_server({ router, port: 3000 })
-server.listen()
+// Create and start the server
+const server = create_server({ router, port: 3000 });
+server.listen();
 ```
 
 ## Authentication System
@@ -688,7 +697,7 @@ server.listen()
 
 ## Next Steps
 
-- **[Getting Started](./getting-started.md)** - Basic setup
-- **[Routing Guide](./routing.md)** - Advanced routing
-- **[Middleware](./middleware.md)** - Middleware patterns
-- **[API Reference](./api-reference.md)** - Complete API docs
+- **[Getting Started](./02-getting-started.md)** - Basic setup
+- **[Routing Guide](./03-routing.md)** - Advanced routing
+- **[Middleware](./04-middleware.md)** - Middleware patterns
+- **[API Reference](./08-api-reference.md)** - Complete API docs

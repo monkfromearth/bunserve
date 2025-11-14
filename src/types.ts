@@ -12,7 +12,7 @@ export type RouteParams<TPath extends string> =
       ? { [K in Param]: string }
       : TPath extends `${string}*${infer _Rest}`
         ? { '*': string }
-        : {}
+        : {};
 
 /**
  * Extended Request interface that matches Bun's BunRequest.
@@ -20,9 +20,9 @@ export type RouteParams<TPath extends string> =
  */
 export interface BunRequest<TPath extends string = string> extends Request {
   /** Route parameters extracted by Bun's native router */
-  params: RouteParams<TPath>
+  params: RouteParams<TPath>;
   /** Cookie management using Bun's CookieMap */
-  readonly cookies: CookieMap
+  readonly cookies: CookieMap;
 }
 
 /**
@@ -30,9 +30,12 @@ export interface BunRequest<TPath extends string = string> extends Request {
  */
 export interface CookieMap extends Map<string, string> {
   /** Set a cookie with options */
-  set(name: string, value: string, options?: CookieOptions): this
+  set(name: string, value: string, options?: CookieOptions): this;
   /** Delete a cookie */
-  delete(name: string, options?: Pick<CookieOptions, 'domain' | 'path'>): boolean
+  delete(
+    name: string,
+    options?: Pick<CookieOptions, 'domain' | 'path'>
+  ): boolean;
 }
 
 /**
@@ -40,19 +43,19 @@ export interface CookieMap extends Map<string, string> {
  */
 export interface CookieOptions {
   /** Domain scope */
-  domain?: string
+  domain?: string;
   /** Expiration date */
-  expires?: Date
+  expires?: Date;
   /** HTTP-only flag */
-  httpOnly?: boolean
+  httpOnly?: boolean;
   /** Maximum age in seconds */
-  maxAge?: number
+  maxAge?: number;
   /** Path scope */
-  path?: string
+  path?: string;
   /** Same-site policy */
-  sameSite?: 'strict' | 'lax' | 'none' | 'Strict' | 'Lax' | 'None'
+  sameSite?: 'strict' | 'lax' | 'none' | 'Strict' | 'Lax' | 'None';
   /** Secure flag (HTTPS only) */
-  secure?: boolean
+  secure?: boolean;
 }
 
 /**
@@ -64,7 +67,7 @@ export interface CookieOptions {
 export type Middleware = (
   context: RouteContext<string>,
   next: () => Promise<void>
-) => Promise<void | any> | void | any
+) => Promise<undefined | any> | undefined | any;
 
 /**
  * Route handler function type for processing requests.
@@ -74,7 +77,7 @@ export type Middleware = (
  */
 export type RouteHandler<TPath extends string> = (
   context: RouteContext<TPath>
-) => Promise<any> | any
+) => Promise<any> | any;
 
 /**
  * Route context interface providing access to request information and response configuration.
@@ -82,17 +85,17 @@ export type RouteHandler<TPath extends string> = (
  */
 export interface RouteContext<TPath extends string> {
   /** The BunRequest object with native params and cookies */
-  request: BunRequest<TPath>
+  request: BunRequest<TPath>;
   /** Extracted route parameters from URL path (shorthand for request.params) */
-  params: RouteParams<TPath>
+  params: RouteParams<TPath>;
   /** Parsed query parameters from URL search string */
-  query: Record<string, string>
+  query: Record<string, string>;
   /** Parsed request body (null for GET/HEAD requests) */
-  body: any
+  body: any;
   /** Cookie management (shorthand for request.cookies) */
-  cookies: CookieMap
+  cookies: CookieMap;
   /** Response configuration object for setting status, content type, headers, etc. */
-  set: ResponseSetter
+  set: ResponseSetter;
 }
 
 /**
@@ -102,22 +105,25 @@ export interface RouteContext<TPath extends string> {
  */
 export interface ResponseSetter {
   /** HTTP status code (default: 200) */
-  status: number
+  status: number;
   /** Content type configuration for response formatting */
   content:
-    | 'auto'                          // Auto-detect based on result type
-    | 'json'                          // JSON response
-    | 'text'                          // Plain text
-    | 'html'                          // HTML response
-    | 'xml'                           // XML response
-    | 'png' | 'svg' | 'gif' | 'webp'  // Image types (base64)
-    | { type: 'csv'; filename: string } // CSV download
+    | 'auto' // Auto-detect based on result type
+    | 'json' // JSON response
+    | 'text' // Plain text
+    | 'html' // HTML response
+    | 'xml' // XML response
+    | 'png'
+    | 'svg'
+    | 'gif'
+    | 'webp' // Image types (base64)
+    | { type: 'csv'; filename: string }; // CSV download
   /** Custom HTTP headers to include in response */
-  headers: Record<string, string>
+  headers: Record<string, string>;
   /** URL for redirect response (triggers redirect when set) */
-  redirect?: string
+  redirect?: string;
   /** Cache duration (e.g., '1h', '30d', '7d') */
-  cache?: string
+  cache?: string;
 }
 
 /**
@@ -126,25 +132,25 @@ export interface ResponseSetter {
  */
 export type BunRouteHandler<TPath extends string = string> =
   | Response
-  | ((req: BunRequest<TPath>) => Response | Promise<Response>)
+  | ((req: BunRequest<TPath>) => Response | Promise<Response>);
 
 /**
  * Bun's native route definition with per-HTTP-method handlers.
  */
 export type BunRouteDefinition<TPath extends string = string> = {
-  GET?: BunRouteHandler<TPath>
-  POST?: BunRouteHandler<TPath>
-  PUT?: BunRouteHandler<TPath>
-  PATCH?: BunRouteHandler<TPath>
-  DELETE?: BunRouteHandler<TPath>
-  OPTIONS?: BunRouteHandler<TPath>
-  HEAD?: BunRouteHandler<TPath>
-}
+  GET?: BunRouteHandler<TPath>;
+  POST?: BunRouteHandler<TPath>;
+  PUT?: BunRouteHandler<TPath>;
+  PATCH?: BunRouteHandler<TPath>;
+  DELETE?: BunRouteHandler<TPath>;
+  OPTIONS?: BunRouteHandler<TPath>;
+  HEAD?: BunRouteHandler<TPath>;
+};
 
 /**
  * Bun's native routes object passed to Bun.serve().
  */
-export type BunRoutes = Record<string, BunRouteHandler | BunRouteDefinition>
+export type BunRoutes = Record<string, BunRouteHandler | BunRouteDefinition>;
 
 /**
  * Internal route registration for building Bun routes.
@@ -152,13 +158,13 @@ export type BunRoutes = Record<string, BunRouteHandler | BunRouteDefinition>
  */
 export interface RouteRegistration<TPath extends string = string> {
   /** HTTP method (GET, POST, etc.) */
-  method: string
+  method: string;
   /** Route path pattern */
-  path: TPath
+  path: TPath;
   /** Route handler function (our API) */
-  handler: RouteHandler<TPath>
+  handler: RouteHandler<TPath>;
   /** Route-specific middleware array */
-  middlewares: Middleware[]
+  middlewares: Middleware[];
 }
 
 /**
@@ -166,13 +172,13 @@ export interface RouteRegistration<TPath extends string = string> {
  */
 export interface ServerConfig {
   /** Router instance for handling requests */
-  router: Router
+  router: Router;
   /** Port number to listen on (default: 3000) */
-  port?: number
+  port?: number;
   /** Host address to bind to (default: 'localhost') */
-  host?: string
+  host?: string;
   /** Optional hook to run before each request */
-  before_each?: (request: Request) => Promise<void> | void
+  before_each?: (request: Request) => Promise<void> | void;
 }
 
 /**
@@ -180,13 +186,13 @@ export interface ServerConfig {
  */
 export interface DevelopmentOptions {
   /** Whether development features are enabled */
-  enabled?: boolean
+  enabled?: boolean;
   /** Hot reload functionality */
-  hot_reload?: boolean
+  hot_reload?: boolean;
   /** Logging configuration */
-  logging?: LoggingOptions
+  logging?: LoggingOptions;
   /** CORS support */
-  cors?: boolean
+  cors?: boolean;
 }
 
 /**
@@ -194,9 +200,9 @@ export interface DevelopmentOptions {
  */
 interface LoggingOptions {
   /** Whether logging is enabled */
-  enabled?: boolean
+  enabled?: boolean;
   /** Log level threshold */
-  level?: 'debug' | 'info' | 'warn' | 'error'
+  level?: 'debug' | 'info' | 'warn' | 'error';
 }
 
 /**
@@ -204,85 +210,85 @@ interface LoggingOptions {
  */
 export interface Router {
   /** Register a GET route */
-  get<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  get<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
   /** Register a POST route */
-  post<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  post<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
   /** Register a PUT route */
-  put<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  put<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
   /** Register a PATCH route */
-  patch<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  patch<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
   /** Register a DELETE route */
-  delete<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  delete<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
   /** Register an OPTIONS route */
-  options<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  options<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
   /** Register a HEAD route */
-  head<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  head<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
   /** Register a route for all HTTP methods */
-  all<Path extends string>(path: Path, handler: RouteHandler<Path>): void
+  all<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
 
   /** Add global middleware that runs for all routes */
-  use(middleware: Middleware): void
+  use(middleware: Middleware): void;
 
   /** Register a POST route with middleware array */
   post<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /** Register a GET route with middleware array */
   get<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /** Register a PUT route with middleware array */
   put<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /** Register a PATCH route with middleware array */
   patch<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /** Register a DELETE route with middleware array */
   delete<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /** Register an OPTIONS route with middleware array */
   options<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /** Register a HEAD route with middleware array */
   head<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /** Register a route for all HTTP methods with middleware array */
   all<Path extends string>(
     path: Path,
     middlewares: Middleware[],
     handler: RouteHandler<Path>
-  ): void
+  ): void;
 
   /**
    * Build and return Bun-compatible routes object.
    * This is used internally by the server to pass to Bun.serve().
    * @internal
    */
-  build_routes(): BunRoutes
+  build_routes(): BunRoutes;
 }

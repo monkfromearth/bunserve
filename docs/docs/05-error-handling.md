@@ -5,23 +5,25 @@ Comprehensive guide to error handling in BunServe, from basic error responses to
 ## Quick Start
 
 ```typescript
-import { create_router, error_handler, HttpError } from 'bunserve'
+import { create_router, error_handler, HttpError } from 'bunserve';
 
-const router = create_router()
+const router = create_router();
 
 // Add error handler middleware (should be first!)
-router.use(error_handler())
+// This catches all errors thrown in route handlers and formats them
+router.use(error_handler());
 
-// Throw structured errors
+// Throw structured errors in route handlers
 router.get('/user/:id', ({ params }) => {
-  const user = users.find(u => u.id === params.id)
+  const user = users.find(u => u.id === params.id);
 
   if (!user) {
-    throw HttpError.not_found('User not found')
+    // Throw a structured 404 error that will be caught by error_handler
+    throw HttpError.not_found('User not found');
   }
 
-  return user
-})
+  return user;
+});
 ```
 
 ## HttpError Class
@@ -31,55 +33,56 @@ BunServe provides a structured `HttpError` class for throwing HTTP errors:
 ### Factory Methods
 
 ```typescript
-// 400 Bad Request
-throw HttpError.bad_request('Invalid email format')
+// 400 Bad Request - client error with invalid input
+throw HttpError.bad_request('Invalid email format');
 throw HttpError.bad_request('Validation failed', {
   errors: {
     email: 'Invalid format',
     age: 'Must be a number'
   }
-})
+});
 
-// 401 Unauthorized
-throw HttpError.unauthorized()
-throw HttpError.unauthorized('Invalid credentials')
+// 401 Unauthorized - authentication required
+throw HttpError.unauthorized();
+throw HttpError.unauthorized('Invalid credentials');
 
-// 403 Forbidden
-throw HttpError.forbidden()
-throw HttpError.forbidden('Insufficient permissions')
+// 403 Forbidden - authenticated but not authorized
+throw HttpError.forbidden();
+throw HttpError.forbidden('Insufficient permissions');
 
-// 404 Not Found
-throw HttpError.not_found()
-throw HttpError.not_found('User not found')
+// 404 Not Found - resource doesn't exist
+throw HttpError.not_found();
+throw HttpError.not_found('User not found');
 
-// 409 Conflict
-throw HttpError.conflict('Email already exists')
+// 409 Conflict - resource conflict (e.g., duplicates)
+throw HttpError.conflict('Email already exists');
 
-// 500 Internal Server Error
-throw HttpError.internal()
-throw HttpError.internal('Database connection failed')
+// 500 Internal Server Error - server-side error
+throw HttpError.internal();
+throw HttpError.internal('Database connection failed');
 ```
 
 ### Custom Status Codes
 
 ```typescript
-// Any HTTP status code
-throw new HttpError(418, "I'm a teapot")
-throw new HttpError(503, 'Service temporarily unavailable')
+// Any HTTP status code with custom messages
+throw new HttpError(418, "I'm a teapot");
+throw new HttpError(503, 'Service temporarily unavailable');
 ```
 
 ### Error with Details
 
 ```typescript
+// Throw error with additional details object
 throw HttpError.bad_request('Validation failed', {
   fields: ['email', 'password'],
   messages: {
     email: 'Invalid email format',
     password: 'Password too short'
   }
-})
+});
 
-// Response:
+// Response automatically includes the details:
 // {
 //   "error": "Validation failed",
 //   "status": 400,
@@ -193,19 +196,20 @@ router.use(error_handler({
 ### Input Validation
 
 ```typescript
+// Comprehensive input validation example
 router.post('/api/users', async ({ body, set }) => {
   // Validate required fields
   if (!body.email || !body.password) {
     throw HttpError.bad_request('Email and password are required', {
       missing_fields: !body.email ? ['email'] : ['password']
-    })
+    });
   }
 
   // Validate email format
   if (!isValidEmail(body.email)) {
     throw HttpError.bad_request('Invalid email format', {
       field: 'email'
-    })
+    });
   }
 
   // Validate password strength
@@ -213,43 +217,47 @@ router.post('/api/users', async ({ body, set }) => {
     throw HttpError.bad_request('Password must be at least 8 characters', {
       field: 'password',
       min_length: 8
-    })
+    });
   }
 
-  // Create user
-  const user = await createUser(body)
-  set.status = 201
-  return user
-})
+  // Create user after validation succeeds
+  const user = await createUser(body);
+  set.status = 201;
+  return user;
+});
 ```
 
 ### Using Validation Libraries
 
 ```typescript
-import { z } from 'zod'
+// Using Zod for schema validation
+import { z } from 'zod';
 
+// Define schema with validation rules
 const UserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(2)
-})
+});
 
 router.post('/api/users', async ({ body }) => {
   try {
-    const validated = UserSchema.parse(body)
-    return await createUser(validated)
+    // Validate and parse request body
+    const validated = UserSchema.parse(body);
+    return await createUser(validated);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      // Convert Zod errors to structured HttpError
       throw HttpError.bad_request('Validation failed', {
         errors: error.errors.map(e => ({
           field: e.path.join('.'),
           message: e.message
         }))
-      })
+      });
     }
-    throw error
+    throw error;
   }
-})
+});
 ```
 
 ## Database Errors
@@ -637,6 +645,6 @@ router.use(error_handler({
 
 ## Next Steps
 
-- **[Middleware](./middleware.md)** - Learn about middleware patterns
-- **[Examples](./examples.md)** - Complete error handling examples
-- **[API Reference](./api-reference.md)** - Full API documentation
+- **[Middleware](./04-middleware.md)** - Learn about middleware patterns
+- **[Examples](./07-examples.md)** - Complete error handling examples
+- **[API Reference](./08-api-reference.md)** - Full API documentation

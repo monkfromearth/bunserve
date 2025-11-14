@@ -18,17 +18,19 @@ Middleware functions run before (and after) your route handlers, allowing you to
 ### Creating Middleware
 
 ```typescript
-import { create_router } from 'bunserve'
+import { create_router } from 'bunserve';
 
-const router = create_router()
+const router = create_router();
 
-// Simple logging middleware
+// Simple logging middleware that runs before route handlers
 router.use(async ({ request }, next) => {
-  console.log(`${request.method} ${request.url}`)
-  await next() // Continue to next middleware or handler
-})
+  console.log(`${request.method} ${request.url}`);
+  // Continue to next middleware or handler
+  await next();
+});
 
-router.get('/', () => 'Hello World')
+// Route handler - runs after middleware
+router.get('/', () => 'Hello World');
 ```
 
 ### Middleware Order
@@ -36,24 +38,27 @@ router.get('/', () => 'Hello World')
 Middleware executes in the order you register it:
 
 ```typescript
+// First middleware - executes first
 router.use(async ({}, next) => {
-  console.log('1: Before')
-  await next()
-  console.log('1: After')
-})
+  console.log('1: Before');
+  await next(); // Call next middleware
+  console.log('1: After');
+});
 
+// Second middleware - executes second
 router.use(async ({}, next) => {
-  console.log('2: Before')
-  await next()
-  console.log('2: After')
-})
+  console.log('2: Before');
+  await next(); // Call route handler
+  console.log('2: After');
+});
 
+// Route handler - executes last
 router.get('/', () => {
-  console.log('Handler')
-  return 'Done'
-})
+  console.log('Handler');
+  return 'Done';
+});
 
-// Output:
+// Output demonstrates middleware execution order:
 // 1: Before
 // 2: Before
 // Handler
@@ -70,22 +75,24 @@ BunServe includes several production-ready middleware:
 Catches and formats errors:
 
 ```typescript
-import { error_handler, HttpError } from 'bunserve'
+import { error_handler, HttpError } from 'bunserve';
 
-const router = create_router()
+const router = create_router();
 
-// Add error handler FIRST
-router.use(error_handler())
+// Add error handler FIRST to catch all errors thrown in routes
+router.use(error_handler());
 
+// Route that throws structured errors
 router.get('/user/:id', ({ params }) => {
-  const user = users.find(u => u.id === params.id)
+  const user = users.find(u => u.id === params.id);
 
   if (!user) {
-    throw HttpError.not_found('User not found')
+    // Throw a structured 404 error
+    throw HttpError.not_found('User not found');
   }
 
-  return user
-})
+  return user;
+});
 
 // Errors are automatically caught and formatted:
 // {
@@ -97,45 +104,46 @@ router.get('/user/:id', ({ params }) => {
 #### Error Handler Options
 
 ```typescript
+// Configure error handler with custom options
 router.use(error_handler({
   // Include stack traces (default: true in dev, false in production)
   include_stack: true,
 
-  // Custom error formatter
+  // Custom error formatter function
   format_error: (error, context) => {
     return {
       message: error.message,
       timestamp: new Date().toISOString()
-    }
+    };
   },
 
-  // Custom error logger
+  // Custom error logger function
   log_error: (error, context) => {
-    console.error('Error occurred:', error)
+    console.error('Error occurred:', error);
   }
-}))
+}));
 ```
 
 #### HttpError Factory Methods
 
 ```typescript
-// 400 Bad Request
-throw HttpError.bad_request('Invalid input', { field: 'email' })
+// 400 Bad Request - client sent invalid data
+throw HttpError.bad_request('Invalid input', { field: 'email' });
 
-// 401 Unauthorized
-throw HttpError.unauthorized('Please login')
+// 401 Unauthorized - authentication required
+throw HttpError.unauthorized('Please login');
 
-// 403 Forbidden
-throw HttpError.forbidden('Access denied')
+// 403 Forbidden - authenticated but not authorized
+throw HttpError.forbidden('Access denied');
 
-// 404 Not Found
-throw HttpError.not_found('Resource not found')
+// 404 Not Found - resource doesn't exist
+throw HttpError.not_found('Resource not found');
 
-// 409 Conflict
-throw HttpError.conflict('User already exists')
+// 409 Conflict - resource conflict (e.g., duplicate)
+throw HttpError.conflict('User already exists');
 
-// 500 Internal Server Error
-throw HttpError.internal('Something went wrong')
+// 500 Internal Server Error - server-side error
+throw HttpError.internal('Something went wrong');
 ```
 
 ### CORS Middleware
@@ -143,27 +151,27 @@ throw HttpError.internal('Something went wrong')
 Enable Cross-Origin Resource Sharing:
 
 ```typescript
-import { cors } from 'bunserve'
+import { cors } from 'bunserve';
 
-// Allow all origins
-router.use(cors())
+// Allow all origins (use cautiously in production)
+router.use(cors());
 
-// Custom configuration
+// Custom configuration for specific origins
 router.use(cors({
-  origin: ['https://example.com', 'https://app.example.com'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowed_headers: ['Content-Type', 'Authorization'],
-  credentials: true,
-  max_age: 86400 // 24 hours
-}))
+  origin: ['https://example.com', 'https://app.example.com'],  // Allow specific origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],                    // Allow specific HTTP methods
+  allowed_headers: ['Content-Type', 'Authorization'],            // Allow specific headers
+  credentials: true,                                             // Allow cookies/credentials
+  max_age: 86400                                                 // Cache preflight for 24 hours
+}));
 
-// Dynamic origin validation
+// Dynamic origin validation with custom function
 router.use(cors({
   origin: (origin) => {
     // Allow all .example.com subdomains
-    return origin.endsWith('.example.com')
+    return origin.endsWith('.example.com');
   }
-}))
+}));
 ```
 
 #### CORS Presets
@@ -189,18 +197,18 @@ router.use(cors_presets.allow_all())
 Log HTTP requests:
 
 ```typescript
-import { logger } from 'bunserve'
+import { logger } from 'bunserve';
 
-// Development logging (with colors)
-router.use(logger({ format: 'dev' }))
+// Development logging (with colors and timing)
+router.use(logger({ format: 'dev' }));
 // Output: [abc123] GET /api/users 200 15ms
 
 // Production logging (with timestamps)
-router.use(logger({ format: 'combined' }))
+router.use(logger({ format: 'combined' }));
 // Output: 2024-01-01T12:00:00.000Z [abc123] GET /api/users 200 15ms
 
-// Minimal logging
-router.use(logger({ format: 'tiny' }))
+// Minimal logging (just method and path)
+router.use(logger({ format: 'tiny' }));
 // Output: GET /api/users
 ```
 
@@ -243,32 +251,35 @@ router.use(logger_presets.minimal())
 Apply middleware to specific routes:
 
 ```typescript
-// Authentication middleware
+// Authentication middleware that checks for auth token
 const requireAuth = async ({ request, set }, next) => {
-  const token = request.headers.get('authorization')
+  const token = request.headers.get('authorization');
 
   if (!token) {
-    set.status = 401
-    return { error: 'Unauthorized' }
+    set.status = 401;
+    return { error: 'Unauthorized' };
   }
 
   // Verify token...
-  await next()
-}
+  await next();
+};
 
 // Apply to specific routes
-router.get('/public', () => 'Public data')
-router.get('/private', [requireAuth], () => 'Private data')
+// Public route - no middleware required
+router.get('/public', () => 'Public data');
+// Private route - requires authentication
+router.get('/private', [requireAuth], () => 'Private data');
 
-// Multiple middleware
+// Multiple middleware - executes in array order
 const requireAdmin = async ({ request, set }, next) => {
   // Check if user is admin...
-  await next()
-}
+  await next();
+};
 
+// Admin route - requires both auth and admin middleware
 router.get('/admin', [requireAuth, requireAdmin], () => {
-  return 'Admin data'
-})
+  return 'Admin data';
+});
 ```
 
 ## Custom Middleware
@@ -276,69 +287,78 @@ router.get('/admin', [requireAuth, requireAdmin], () => {
 ### Authentication Middleware
 
 ```typescript
-import { Context } from 'bunserve'
+import { Context } from 'bunserve';
 
+// Authentication middleware with JWT verification
 const authenticate = async ({ request, set }, next) => {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  // Extract Bearer token from Authorization header
+  const token = request.headers.get('authorization')?.replace('Bearer ', '');
 
   if (!token) {
-    set.status = 401
-    return { error: 'No token provided' }
+    set.status = 401;
+    return { error: 'No token provided' };
   }
 
   try {
     // Verify JWT token (example)
-    const user = verifyJWT(token)
+    const user = verifyJWT(token);
 
-    // Store user in context for use in handlers
-    Context.set({ user })
+    // Store user in context for use in route handlers
+    Context.set({ user });
 
-    await next()
+    await next();
   } catch (error) {
-    set.status = 401
-    return { error: 'Invalid token' }
+    set.status = 401;
+    return { error: 'Invalid token' };
   }
-}
+};
 
-// Use in routes
+// Use in routes - access user from context
 router.get('/profile', [authenticate], () => {
-  const { user } = Context.get<{ user: User }>()
-  return { user }
-})
+  // Retrieve user from context with type safety
+  const { user } = Context.get<{ user: User }>();
+  return { user };
+});
 ```
 
 ### Rate Limiting Middleware
 
 ```typescript
-const rate_limiter = new Map<string, { count: number; reset: number }>()
+// In-memory store for rate limit tracking
+const rate_limiter = new Map<string, { count: number; reset: number }>();
 
+// Rate limiting middleware factory
 const rate_limit = (max_requests: number, window_ms: number) => {
   return async ({ request, set }, next) => {
-    const ip = request.headers.get('x-forwarded-for') || 'unknown'
-    const now = Date.now()
+    // Get client IP from headers
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const now = Date.now();
 
-    const limit = rate_limiter.get(ip)
+    const limit = rate_limiter.get(ip);
 
     if (limit && now < limit.reset) {
+      // Within the time window
       if (limit.count >= max_requests) {
-        set.status = 429
-        set.headers['Retry-After'] = String(Math.ceil((limit.reset - now) / 1000))
-        return { error: 'Too many requests' }
+        // Rate limit exceeded
+        set.status = 429;
+        set.headers['Retry-After'] = String(Math.ceil((limit.reset - now) / 1000));
+        return { error: 'Too many requests' };
       }
-      limit.count++
+      limit.count++;
     } else {
+      // New time window - reset counter
       rate_limiter.set(ip, {
         count: 1,
         reset: now + window_ms
-      })
+      });
     }
 
-    await next()
-  }
-}
+    await next();
+  };
+};
 
-// Use: 100 requests per 15 minutes
-router.use(rate_limit(100, 15 * 60 * 1000))
+// Apply rate limit: 100 requests per 15 minutes
+router.use(rate_limit(100, 15 * 60 * 1000));
 ```
 
 ### Caching Middleware
@@ -625,7 +645,7 @@ router.use(async ({}, next) => {
 
 ## Next Steps
 
-- **[Error Handling](./error-handling.md)** - Advanced error handling patterns
+- **[Error Handling](./05-error-handling.md)** - Advanced error handling patterns
 - **[Response Handling](./responses.md)** - Different response types
-- **[Examples](./examples.md)** - Complete middleware examples
-- **[API Reference](./api-reference.md)** - Complete API documentation
+- **[Examples](./07-examples.md)** - Complete middleware examples
+- **[API Reference](./08-api-reference.md)** - Complete API documentation

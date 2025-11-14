@@ -8,25 +8,12 @@
     "lineEnding": "lf",
     "lineWidth": 80,
     "attributePosition": "auto",
-    "ignore": [
-      "dist/**/*",
-      "**/*/dist",
-      "docs/**/*",
-      "node_modules/**/*"
-    ]
-  },
-  "organizeImports": {
-    "enabled": true,
-    "ignore": [
-      "docs",
-      "node_modules",
-      "dist"
-    ]
+    "includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json"]
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "all": true,
+      "recommended": true,
       "correctness": {
         "noUndeclaredDependencies": "off",
         "useImportExtensions": "off",
@@ -43,12 +30,7 @@
         "noReExportAll": "off"
       }
     },
-    "ignore": [
-      "docs/**/*",
-      "**/*/dist",
-      "dist/**/*",
-      "node_modules/**/*"
-    ]
+    "includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
   },
   "javascript": {
     "formatter": {

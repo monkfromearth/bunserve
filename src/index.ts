@@ -6,19 +6,21 @@
  * Express-like API with enhanced TypeScript support and request-scoped context management.
  */
 
-// Core exports
-export { create_router } from './router'
-export { create_server } from './server'
-export type * from './types'
-
-// Middleware exports
-export * from './middleware/index'
-
-// Health check exports
-export { create_health_check, simple_health_check, type HealthCheck, type HealthCheckResult } from './health'
-
 // Re-export Context for convenience
-export { Context } from '@theinternetfolks/context'
+export { Context } from '@theinternetfolks/context';
+// Health check exports
+export {
+  create_health_check,
+  type HealthCheck,
+  type HealthCheckResult,
+  simple_health_check
+} from './health';
+// Middleware exports
+export * from './middleware/index';
+// Core exports
+export { create_router } from './router';
+export { create_server } from './server';
+export type * from './types';
 
 /**
  * @example

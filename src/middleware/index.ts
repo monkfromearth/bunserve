@@ -4,6 +4,10 @@
  * @module bunserve/middleware
  */
 
-export { error_handler, HttpError, type ErrorHandlerOptions } from './error-handler'
-export { cors, cors_presets, type CorsOptions } from './cors'
-export { logger, logger_presets, type LoggerOptions } from './logger'
+export { type CorsOptions, cors, cors_presets } from './cors';
+export {
+  type ErrorHandlerOptions,
+  error_handler,
+  HttpError
+} from './error-handler';
+export { type LoggerOptions, logger, logger_presets } from './logger';

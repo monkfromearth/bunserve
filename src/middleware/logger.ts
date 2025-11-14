@@ -1,18 +1,18 @@
-import { Context } from '@theinternetfolks/context'
-import type { Middleware } from '../types'
+import { Context } from '@theinternetfolks/context';
+import type { Middleware } from '../types';
 
 /**
  * Logger middleware configuration options.
  */
 export interface LoggerOptions {
   /** Whether to log requests */
-  enabled?: boolean
+  enabled?: boolean;
   /** Log format (default: 'combined') */
-  format?: 'combined' | 'common' | 'dev' | 'short' | 'tiny'
+  format?: 'combined' | 'common' | 'dev' | 'short' | 'tiny';
   /** Custom log function */
-  log?: (message: string) => void
+  log?: (message: string) => void;
   /** Skip logging for certain paths */
-  skip?: (path: string) => boolean
+  skip?: (path: string) => boolean;
 }
 
 /**
@@ -25,17 +25,17 @@ const colors = {
   red: '\x1b[31m',
   cyan: '\x1b[36m',
   gray: '\x1b[90m'
-}
+};
 
 /**
  * Get color based on HTTP status code.
  */
 function get_status_color(status: number): string {
-  if (status >= 500) return colors.red
-  if (status >= 400) return colors.yellow
-  if (status >= 300) return colors.cyan
-  if (status >= 200) return colors.green
-  return colors.reset
+  if (status >= 500) return colors.red;
+  if (status >= 400) return colors.yellow;
+  if (status >= 300) return colors.cyan;
+  if (status >= 200) return colors.green;
+  return colors.reset;
 }
 
 /**
@@ -49,26 +49,26 @@ function format_log(
   duration: number,
   request_id: string
 ): string {
-  const status_color = get_status_color(status)
+  const status_color = get_status_color(status);
 
   switch (format) {
     case 'dev':
-      return `${colors.gray}[${request_id}]${colors.reset} ${method} ${url} ${status_color}${status}${colors.reset} ${duration}ms`
+      return `${colors.gray}[${request_id}]${colors.reset} ${method} ${url} ${status_color}${status}${colors.reset} ${duration}ms`;
 
     case 'combined':
-      return `${new Date().toISOString()} [${request_id}] ${method} ${url} ${status} ${duration}ms`
+      return `${new Date().toISOString()} [${request_id}] ${method} ${url} ${status} ${duration}ms`;
 
     case 'common':
-      return `${method} ${url} ${status} ${duration}ms`
+      return `${method} ${url} ${status} ${duration}ms`;
 
     case 'short':
-      return `${method} ${url} ${status}`
+      return `${method} ${url} ${status}`;
 
     case 'tiny':
-      return `${method} ${url}`
+      return `${method} ${url}`;
 
     default:
-      return `${method} ${url} ${status} ${duration}ms`
+      return `${method} ${url} ${status} ${duration}ms`;
   }
 }
 
@@ -101,37 +101,44 @@ export function logger(options: LoggerOptions = {}): Middleware {
     format = 'dev',
     log = console.log,
     skip = () => false
-  } = options
+  } = options;
 
   if (!enabled) {
     return async (_context, next) => {
-      await next()
-    }
+      await next();
+    };
   }
 
   return async (context, next) => {
-    const url = new URL(context.request.url)
-    const path = url.pathname
+    const url = new URL(context.request.url);
+    const path = url.pathname;
 
     // Skip logging if specified
     if (skip(path)) {
-      await next()
-      return
+      await next();
+      return;
     }
 
-    const method = context.request.method
-    const ctx = Context.get<{ request_id: string; start_time: number }>()
-    const start_time = ctx?.start_time || Date.now()
-    const request_id = ctx?.request_id || 'unknown'
+    const method = context.request.method;
+    const ctx = Context.get<{ request_id: string; start_time: number }>();
+    const start_time = ctx?.start_time || Date.now();
+    const request_id = ctx?.request_id || 'unknown';
 
-    await next()
+    await next();
 
-    const duration = Date.now() - start_time
-    const status = context.set.status
+    const duration = Date.now() - start_time;
+    const status = context.set.status;
 
-    const log_message = format_log(format, method, path, status, duration, request_id)
-    log(log_message)
-  }
+    const log_message = format_log(
+      format,
+      method,
+      path,
+      status,
+      duration,
+      request_id
+    );
+    log(log_message);
+  };
 }
 
 /**
@@ -146,4 +153,4 @@ export const logger_presets = {
 
   /** Minimal logger for performance */
   minimal: (): Middleware => logger({ format: 'tiny' })
-}
+};

@@ -11,50 +11,54 @@ BunServe uses Bun's native cookie management system, which provides efficient co
 ### Reading Cookies
 
 ```typescript
+// Read cookies from the request
 router.get('/profile', ({ cookies }) => {
-  const session_id = cookies.get('session_id')
-  const theme = cookies.get('theme') || 'light'
+  // Get cookie values using get() method
+  const session_id = cookies.get('session_id');
+  const theme = cookies.get('theme') || 'light'; // Default to 'light' if not set
 
   return {
     session_id,
     theme
-  }
-})
+  };
+});
 ```
 
 ### Setting Cookies
 
 ```typescript
+// Set cookies in the response
 router.post('/login', ({ body, cookies }) => {
   // Authenticate user...
 
-  // Set a simple cookie
-  cookies.set('user_id', '12345')
+  // Set a simple cookie without options
+  cookies.set('user_id', '12345');
 
-  // Set a cookie with options
+  // Set a secure cookie with options
   cookies.set('session_id', 'abc123', {
-    httpOnly: true,
-    secure: true,
-    maxAge: 3600, // 1 hour in seconds
-    path: '/',
-    sameSite: 'strict'
-  })
+    httpOnly: true,    // Prevents JavaScript access
+    secure: true,      // Only sent over HTTPS
+    maxAge: 3600,      // Expires in 1 hour (in seconds)
+    path: '/',         // Available for entire site
+    sameSite: 'strict' // Strict CSRF protection
+  });
 
-  return { success: true }
-})
+  return { success: true };
+});
 ```
 
 ### Deleting Cookies
 
 ```typescript
+// Delete a cookie
 router.post('/logout', ({ cookies }) => {
-  // Delete a cookie
+  // Delete a cookie by name and path
   cookies.delete('session_id', {
-    path: '/' // Must match the path used when setting
-  })
+    path: '/' // Must match the path used when setting the cookie
+  });
 
-  return { message: 'Logged out successfully' }
-})
+  return { message: 'Logged out successfully' };
+});
 ```
 
 ## Cookie Options
@@ -64,9 +68,10 @@ router.post('/logout', ({ cookies }) => {
 Prevents JavaScript access to the cookie (recommended for security):
 
 ```typescript
+// httpOnly prevents JavaScript access for security
 cookies.set('session_id', 'abc123', {
   httpOnly: true // Cannot be accessed via document.cookie
-})
+});
 ```
 
 ### secure
@@ -74,9 +79,10 @@ cookies.set('session_id', 'abc123', {
 Cookie only sent over HTTPS:
 
 ```typescript
+// secure ensures cookie only sent over HTTPS
 cookies.set('session_id', 'abc123', {
   secure: true // Only sent over HTTPS
-})
+});
 ```
 
 ### sameSite
@@ -84,21 +90,21 @@ cookies.set('session_id', 'abc123', {
 Controls cross-site cookie behavior:
 
 ```typescript
-// Strict: Never sent in cross-site requests
+// Strict: Never sent in cross-site requests (best security)
 cookies.set('session_id', 'abc123', {
   sameSite: 'strict'
-})
+});
 
-// Lax: Sent with top-level navigations (default)
+// Lax: Sent with top-level navigations (default, balanced)
 cookies.set('tracking_id', 'xyz789', {
   sameSite: 'lax'
-})
+});
 
-// None: Sent with all requests (requires secure: true)
+// None: Sent with all requests (requires secure: true for third-party)
 cookies.set('widget_token', 'token123', {
   sameSite: 'none',
   secure: true
-})
+});
 ```
 
 ### maxAge
@@ -106,20 +112,20 @@ cookies.set('widget_token', 'token123', {
 Cookie expiration in seconds:
 
 ```typescript
-// 1 hour
+// 1 hour - cookie expires in 3600 seconds
 cookies.set('temp_token', 'abc123', {
   maxAge: 3600
-})
+});
 
-// 7 days
+// 7 days - cookie expires in 604800 seconds
 cookies.set('remember_me', 'true', {
   maxAge: 7 * 24 * 60 * 60
-})
+});
 
 // Session cookie (deleted when browser closes)
 cookies.set('session', 'xyz', {
-  // No maxAge or expires
-})
+  // No maxAge or expires means session cookie
+});
 ```
 
 ### expires
@@ -546,7 +552,7 @@ test('sets session cookie on login', async () => {
 
 ## Next Steps
 
-- **[Middleware](./middleware.md)** - Authentication middleware
-- **[Error Handling](./error-handling.md)** - Handle auth errors
-- **[Examples](./examples.md)** - Complete auth examples
-- **[API Reference](./api-reference.md)** - Full API documentation
+- **[Middleware](./04-middleware.md)** - Authentication middleware
+- **[Error Handling](./05-error-handling.md)** - Handle auth errors
+- **[Examples](./07-examples.md)** - Complete auth examples
+- **[API Reference](./08-api-reference.md)** - Full API documentation

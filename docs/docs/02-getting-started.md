@@ -1,0 +1,497 @@
+# Getting Started with BunServe
+
+This guide will walk you through creating your first BunServe application.
+
+## Prerequisites
+
+- **Bun** v1.2.0 or higher
+- Basic TypeScript knowledge
+- Familiarity with HTTP concepts
+
+## Installation
+
+Create a new project and install BunServe:
+
+```bash
+# Create a new directory
+mkdir my-api
+cd my-api
+
+# Initialize Bun project
+bun init
+
+# Install BunServe
+bun add bunserve
+```
+
+## Your First Server
+
+Create a file called `server.ts`:
+
+```typescript
+// Import core BunServe functions for routing and server creation
+import { create_router, create_server } from 'bunserve';
+
+// Create a router instance to register routes
+const router = create_router();
+
+// Add a simple route that returns a text response
+router.get('/', () => {
+  return 'Welcome to BunServe!';
+});
+
+// Add a JSON route that returns the server status
+router.get('/api/status', () => {
+  return {
+    status: 'online',
+    timestamp: new Date().toISOString()
+  };
+});
+
+// Create and start the server on port 3000
+const server = create_server({
+  router,
+  port: 3000
+});
+
+// Start listening for incoming requests
+server.listen();
+```
+
+Run your server:
+
+```bash
+bun run server.ts
+```
+
+Visit `http://localhost:3000` in your browser!
+
+## Adding More Routes
+
+### Route Parameters
+
+Extract values from the URL:
+
+```typescript
+// Route with a single dynamic parameter (:id)
+router.get('/users/:id', ({ params }) => {
+  return {
+    message: `User ID: ${params.id}`
+  };
+});
+
+// Multiple parameters - extract both postId and commentId from the URL
+router.get('/posts/:postId/comments/:commentId', ({ params }) => {
+  return {
+    post: params.postId,
+    comment: params.commentId
+  };
+});
+```
+
+### Query Parameters
+
+Access query string values:
+
+```typescript
+// Access query string parameters from the URL
+router.get('/search', ({ query }) => {
+  // Extract search term from query string, default to empty string
+  const searchTerm = query.q || '';
+  // Parse page number from query string, default to page 1
+  const page = parseInt(query.page || '1');
+
+  return {
+    searching_for: searchTerm,
+    page: page,
+    results: [] // Your search results here
+  };
+});
+
+// GET /search?q=hello&page=2
+```
+
+### Request Body
+
+Handle POST/PUT requests with body data:
+
+```typescript
+// Handle POST requests with a JSON body
+router.post('/api/users', async ({ body, set }) => {
+  // body is automatically parsed based on Content-Type header
+  const user = {
+    id: crypto.randomUUID(),
+    name: body.name,
+    email: body.email
+  };
+
+  // Set 201 Created status for successful resource creation
+  set.status = 201;
+
+  return user;
+});
+```
+
+Test it:
+```bash
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}'
+```
+
+## Response Types
+
+BunServe automatically detects response types:
+
+```typescript
+// JSON (auto-detected for objects)
+// BunServe automatically sets Content-Type to application/json
+router.get('/json', () => {
+  return { message: 'JSON response' };
+});
+
+// Plain text (auto-detected for strings)
+// BunServe automatically sets Content-Type to text/plain
+router.get('/text', () => {
+  return 'Plain text response';
+});
+
+// HTML
+// Explicitly set content type to HTML
+router.get('/html', ({ set }) => {
+  set.content = 'html';
+  return '<h1>Hello World</h1>';
+});
+
+// Custom status code
+// Set a 404 status code for not found responses
+router.get('/not-found', ({ set }) => {
+  set.status = 404;
+  return { error: 'Not found' };
+});
+
+// Redirect
+// Redirect the user to a new path
+router.get('/old-path', ({ set }) => {
+  set.redirect = '/new-path';
+});
+```
+
+## Adding Middleware
+
+Middleware runs before your route handlers:
+
+```typescript
+// Import the built-in logger middleware
+import { logger } from 'bunserve';
+
+const router = create_router();
+
+// Global middleware - runs for all routes
+// Logger middleware logs every request with dev formatting
+router.use(logger({ format: 'dev' }));
+
+// Custom middleware to log method and URL
+router.use(async ({ request }, next) => {
+  console.log(`${request.method} ${request.url}`);
+  // Call next() to continue to the next middleware or route handler
+  await next();
+});
+
+// Route-specific middleware for authentication
+const auth_middleware = async ({ request, set }, next) => {
+  // Check for authorization header
+  const token = request.headers.get('authorization');
+
+  if (!token) {
+    // Return 401 Unauthorized if no token present
+    set.status = 401;
+    return { error: 'Unauthorized' };
+  }
+
+  // Call next() only if authentication succeeds
+  await next();
+};
+
+// Apply auth_middleware only to this protected route
+router.get('/protected', [auth_middleware], () => {
+  return { message: 'Protected data' };
+});
+```
+
+## Error Handling
+
+Handle errors gracefully:
+
+```typescript
+// Import error handling utilities
+import { error_handler, HttpError } from 'bunserve';
+
+const router = create_router();
+
+// Add error handler first - catches all errors thrown in routes
+router.use(error_handler());
+
+// Throw structured errors in route handlers
+router.get('/user/:id', ({ params }) => {
+  // Find user by ID from your data store
+  const user = users.find(u => u.id === params.id);
+
+  if (!user) {
+    // Throw a structured 404 error that will be caught and formatted
+    throw HttpError.not_found('User not found');
+  }
+
+  return user;
+});
+
+// Errors are automatically caught and formatted by error_handler middleware
+```
+
+## Working with Cookies
+
+Use Bun's native cookie API:
+
+```typescript
+// Login route that sets a session cookie
+router.post('/login', ({ body, cookies }) => {
+  // Authenticate user...
+
+  // Set a secure HTTP-only session cookie
+  cookies.set('session_id', 'abc123', {
+    httpOnly: true,    // Prevents JavaScript access to cookie
+    secure: true,      // Only sent over HTTPS
+    maxAge: 3600,      // Expires in 1 hour
+    path: '/'          // Available for entire site
+  });
+
+  return { success: true };
+});
+
+// Profile route that reads the session cookie
+router.get('/profile', ({ cookies }) => {
+  // Read the session_id cookie
+  const session_id = cookies.get('session_id');
+
+  if (!session_id) {
+    return { error: 'Not logged in' };
+  }
+
+  return { session_id };
+});
+
+// Logout route that deletes the session cookie
+router.post('/logout', ({ cookies }) => {
+  // Delete the cookie by name and path
+  cookies.delete('session_id', { path: '/' });
+  return { success: true };
+});
+```
+
+## Complete Example
+
+Here's a complete REST API example:
+
+```typescript
+// Import all necessary utilities from BunServe
+import { create_router, create_server, logger, error_handler, HttpError } from 'bunserve';
+
+// In-memory data store using Map for fast lookups
+const users = new Map<string, { id: string; name: string; email: string }>();
+
+const router = create_router();
+
+// Middleware - runs before route handlers
+// Logger middleware to log all requests in dev format
+router.use(logger({ format: 'dev' }));
+// Error handler to catch and format errors thrown in routes
+router.use(error_handler());
+
+// Routes
+// List all users
+router.get('/api/users', () => {
+  return { users: Array.from(users.values()) };
+});
+
+// Get a specific user by ID
+router.get('/api/users/:id', ({ params }) => {
+  const user = users.get(params.id);
+
+  if (!user) {
+    // Throw 404 error if user not found
+    throw HttpError.not_found('User not found');
+  }
+
+  return user;
+});
+
+// Create a new user
+router.post('/api/users', async ({ body, set }) => {
+  // Generate a unique ID for the new user
+  const id = crypto.randomUUID();
+  const user = { id, name: body.name, email: body.email };
+
+  // Store the user in the Map
+  users.set(id, user);
+  // Set 201 Created status code
+  set.status = 201;
+
+  return user;
+});
+
+// Update an existing user
+router.put('/api/users/:id', async ({ params, body }) => {
+  const user = users.get(params.id);
+
+  if (!user) {
+    throw HttpError.not_found('User not found');
+  }
+
+  // Update user properties if provided in body
+  user.name = body.name || user.name;
+  user.email = body.email || user.email;
+  users.set(params.id, user);
+
+  return user;
+});
+
+// Delete a user
+router.delete('/api/users/:id', ({ params, set }) => {
+  const deleted = users.delete(params.id);
+
+  if (!deleted) {
+    throw HttpError.not_found('User not found');
+  }
+
+  // Set 204 No Content status for successful deletion
+  set.status = 204;
+  return null;
+});
+
+// Start server on port 3000
+const server = create_server({ router, port: 3000 });
+server.listen();
+```
+
+Save this as `api.ts` and run:
+
+```bash
+bun run api.ts
+```
+
+Test the API:
+
+```bash
+# Create a user
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}'
+
+# Get all users
+curl http://localhost:3000/api/users
+
+# Get specific user (use the ID from create response)
+curl http://localhost:3000/api/users/{id}
+
+# Update user
+curl -X PUT http://localhost:3000/api/users/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice Updated"}'
+
+# Delete user
+curl -X DELETE http://localhost:3000/api/users/{id}
+```
+
+## Next Steps
+
+Now that you have a basic server running, explore more features:
+
+- **[Routing Guide](./03-routing.md)** - Advanced routing patterns including wildcards
+- **[Middleware](./04-middleware.md)** - CORS, authentication, rate limiting
+- **[Response Handling](./responses.md)** - Different content types and file serving
+- **[Error Handling](./05-error-handling.md)** - Advanced error handling patterns
+- **[Examples](./07-examples.md)** - Real-world example applications
+
+## Common Patterns
+
+### Health Check Endpoint
+
+```typescript
+// Import the health check utility
+import { create_health_check } from 'bunserve';
+
+// Create a health check endpoint with dependency checks
+router.get('/health', create_health_check({
+  checks: {
+    database: async () => {
+      // Return true if database is accessible, false otherwise
+      return true;
+    }
+  }
+}));
+```
+
+### CORS Support
+
+```typescript
+// Import CORS middleware
+import { cors } from 'bunserve';
+
+// Enable CORS for specific origins with credentials support
+router.use(cors({
+  origin: ['https://example.com'],  // Allow only this origin
+  credentials: true                   // Allow cookies and credentials
+}));
+```
+
+### Request Context
+
+Access request-scoped data anywhere:
+
+```typescript
+// Import Context for request-scoped data storage
+import { Context } from 'bunserve';
+
+// Middleware to access request context data
+router.use(async ({}, next) => {
+  // Get typed context data for the current request
+  const ctx = Context.get<{ request_id: string; start_time: number }>();
+  console.log(`Request ID: ${ctx.request_id}`);
+  await next();
+});
+```
+
+## Troubleshooting
+
+### Port Already in Use
+
+If you see "address already in use", change the port:
+
+```typescript
+// Change the port to 3001 to avoid conflicts
+const server = create_server({ router, port: 3001 });
+```
+
+### TypeScript Errors
+
+Make sure you have Bun's type definitions:
+
+```bash
+bun add -d @types/bun
+```
+
+### Performance Issues
+
+BunServe uses Bun's native router for optimal performance. If you're experiencing issues:
+
+1. Avoid heavy computation in route handlers
+2. Use middleware for common operations
+3. Consider caching frequently accessed data
+4. Profile your application with `bun --inspect`
+
+## Need Help?
+
+- Check the [API Reference](./08-api-reference.md)
+- Browse [Examples](./07-examples.md)
+- Read about [Best Practices](./best-practices.md)
+- Open an issue on [GitHub](https://github.com/yourusername/bunserve)

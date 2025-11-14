@@ -1,18 +1,18 @@
-import type { Router, ServerConfig } from './types'
-import { RouterImpl } from './router'
+import type { RouterImpl } from './router';
+import type { ServerConfig } from './types';
 
 /**
  * Server interface for HTTP server lifecycle management.
  */
 export interface Server {
   /** Start the server listening on the specified port */
-  listen(port?: number): void
+  listen(port?: number): void;
   /** Get the underlying Bun server instance */
-  get_bun_server(): any
+  get_bun_server(): any;
   /** Handle a single HTTP request (useful for testing) */
-  fetch(request: Request): Promise<Response>
+  fetch(request: Request): Promise<Response>;
   /** Stop the server and release resources */
-  close(): Promise<void>
+  close(): Promise<void>;
 }
 
 /**
@@ -21,23 +21,23 @@ export interface Server {
  */
 class ServerImpl implements Server {
   /** Underlying Bun.serve instance */
-  private bun_server: any
+  private bun_server: any;
   /** Router instance for building routes */
-  private router: RouterImpl
+  private router: RouterImpl;
   /** Server configuration */
-  private config: ServerConfig
+  private config: ServerConfig;
 
   /**
    * Create a new server instance.
    * @param config - Server configuration including router and optional settings
    */
   constructor(config: ServerConfig) {
-    this.router = config.router as RouterImpl
+    this.router = config.router as RouterImpl;
     this.config = {
       port: 3000,
       host: 'localhost',
       ...config
-    }
+    };
   }
 
   /**
@@ -45,10 +45,10 @@ class ServerImpl implements Server {
    * @param port - Port number to listen on (uses config default if not specified)
    */
   listen(port?: number): void {
-    const listen_port = port || this.config.port || 3000
+    const listen_port = port || this.config.port || 3000;
 
     // Build Bun-native routes from router
-    const routes = this.router.build_routes()
+    const routes = this.router.build_routes();
 
     // Create Bun server with native routes
     this.bun_server = Bun.serve({
@@ -59,13 +59,15 @@ class ServerImpl implements Server {
       fetch: (req: Request) => {
         // If before_each is defined, call it
         if (this.config.before_each) {
-          this.config.before_each(req)
+          this.config.before_each(req);
         }
-        return new Response('Not Found', { status: 404 })
+        return new Response('Not Found', { status: 404 });
       }
-    })
+    });
 
-    console.log(`🚀 BunServe server running at http://${this.config.host}:${listen_port}`)
+    console.log(
+      `🚀 BunServe server running at http://${this.config.host}:${listen_port}`
+    );
   }
 
   /**
@@ -73,7 +75,7 @@ class ServerImpl implements Server {
    * Useful for accessing Bun-specific APIs like server.pendingRequests.
    */
   get_bun_server(): any {
-    return this.bun_server
+    return this.bun_server;
   }
 
   /**
@@ -81,29 +83,33 @@ class ServerImpl implements Server {
    * @param pattern - Route path pattern (e.g., '/users/:id' or '/api/*')
    * @returns Object with regex, parameter names, and wildcard flag
    */
-  private pattern_to_regex(pattern: string): { regex: RegExp; params: string[]; has_wildcard: boolean } {
-    const params: string[] = []
-    let regex_str = pattern
-    let has_wildcard = false
+  private pattern_to_regex(pattern: string): {
+    regex: RegExp;
+    params: string[];
+    has_wildcard: boolean;
+  } {
+    const params: string[] = [];
+    let regex_str = pattern;
+    let has_wildcard = false;
 
     // Handle wildcard routes - store wildcard position
     if (regex_str.includes('*')) {
-      has_wildcard = true
-      params.push('*')
-      regex_str = regex_str.replace(/\*/g, '(.*)')
+      has_wildcard = true;
+      params.push('*');
+      regex_str = regex_str.replace(/\*/g, '(.*)');
     }
 
     // Convert :param to capture groups
     regex_str = regex_str.replace(/:(\w+)/g, (_, param_name) => {
-      params.push(param_name)
-      return '([^/]+)'
-    })
+      params.push(param_name);
+      return '([^/]+)';
+    });
 
     return {
       regex: new RegExp(`^${regex_str}$`),
       params,
       has_wildcard
-    }
+    };
   }
 
   /**
@@ -112,15 +118,18 @@ class ServerImpl implements Server {
    * @param match - Regex match result
    * @returns Object mapping parameter names to values
    */
-  private extract_params(param_names: string[], match: RegExpMatchArray): Record<string, string> {
-    const params: Record<string, string> = {}
+  private extract_params(
+    param_names: string[],
+    match: RegExpMatchArray
+  ): Record<string, string> {
+    const params: Record<string, string> = {};
     for (let i = 0; i < param_names.length; i++) {
-      const param_name = param_names[i]
+      const param_name = param_names[i];
       if (param_name) {
-        params[param_name] = match[i + 1] || ''
+        params[param_name] = match[i + 1] || '';
       }
     }
-    return params
+    return params;
   }
 
   /**
@@ -131,47 +140,51 @@ class ServerImpl implements Server {
    */
   async fetch(request: Request): Promise<Response> {
     // Build routes and manually dispatch to the matching route
-    const routes = this.router.build_routes()
-    const url = new URL(request.url)
-    const pathname = url.pathname
+    const routes = this.router.build_routes();
+    const url = new URL(request.url);
+    const pathname = url.pathname;
 
     // Find matching route
     for (const [route_path, handler] of Object.entries(routes)) {
       // Convert route pattern to regex for matching
-      const { regex, params: param_names, has_wildcard } = this.pattern_to_regex(route_path)
-      const match = pathname.match(regex)
+      const {
+        regex,
+        params: param_names,
+        has_wildcard
+      } = this.pattern_to_regex(route_path);
+      const match = pathname.match(regex);
 
       if (match) {
         // Extract parameters
-        const params = this.extract_params(param_names, match)
+        const params = this.extract_params(param_names, match);
 
         if (typeof handler === 'function') {
           // Cast request to BunRequest-like object
-          const bun_req = request as any
-          bun_req.params = params
-          bun_req.cookies = new Map()
-          return await handler(bun_req)
+          const bun_req = request as any;
+          bun_req.params = params;
+          bun_req.cookies = new Map();
+          return await handler(bun_req);
         } else if (handler instanceof Response) {
-          return handler
+          return handler;
         } else {
           // Route definition with HTTP methods
-          const method = request.method as keyof typeof handler
-          const method_handler = method ? handler[method] : undefined
+          const method = request.method as keyof typeof handler;
+          const method_handler = method ? handler[method] : undefined;
           if (method_handler) {
             if (typeof method_handler === 'function') {
-              const bun_req = request as any
-              bun_req.params = params
-              bun_req.cookies = new Map()
-              return await method_handler(bun_req)
+              const bun_req = request as any;
+              bun_req.params = params;
+              bun_req.cookies = new Map();
+              return await method_handler(bun_req);
             } else {
-              return method_handler
+              return method_handler;
             }
           }
         }
       }
     }
 
-    return new Response('Not Found', { status: 404 })
+    return new Response('Not Found', { status: 404 });
   }
 
   /**
@@ -179,8 +192,8 @@ class ServerImpl implements Server {
    */
   async close(): Promise<void> {
     if (this.bun_server) {
-      await this.bun_server.stop()
-      console.log('🛑 Server stopped')
+      await this.bun_server.stop();
+      console.log('🛑 Server stopped');
     }
   }
 }
@@ -191,5 +204,5 @@ class ServerImpl implements Server {
  * @returns New server instance
  */
 export function create_server(config: ServerConfig): Server {
-  return new ServerImpl(config)
+  return new ServerImpl(config);
 }

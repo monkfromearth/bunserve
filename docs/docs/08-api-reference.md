@@ -12,9 +12,10 @@ Creates a new router instance for registering routes.
 
 **Example**:
 ```typescript
-import { create_router } from 'bunserve'
+// Create a new router instance
+import { create_router } from 'bunserve';
 
-const router = create_router()
+const router = create_router();
 ```
 
 ### `create_server(config)`
@@ -28,16 +29,18 @@ Creates a new HTTP server with the provided configuration.
 
 **Example**:
 ```typescript
-import { create_server } from 'bunserve'
+// Create a server with configuration options
+import { create_server } from 'bunserve';
 
 const server = create_server({
-  router,
-  port: 3000,
-  host: 'localhost',
+  router,                    // Router instance with routes
+  port: 3000,               // Port to listen on
+  host: 'localhost',        // Host address
   before_each: async (request) => {
-    console.log(`Request: ${request.url}`)
+    // Hook called before each request
+    console.log(`Request: ${request.url}`);
   }
-})
+});
 ```
 
 ## Router Interface
@@ -58,13 +61,15 @@ Register a GET route.
 
 **Example**:
 ```typescript
+// Register a GET route with automatic parameter extraction
 router.get('/users/:id', ({ params }) => {
-  return { user_id: params.id }
-})
+  return { user_id: params.id };
+});
 
+// Register a GET route with middleware array
 router.get('/admin', [requireAuth, requireAdmin], () => {
-  return { admin: true }
-})
+  return { admin: true };
+});
 ```
 
 #### `router.post(path, handler)`
@@ -74,9 +79,10 @@ Register a POST route.
 
 **Example**:
 ```typescript
+// Register a POST route to create a user
 router.post('/users', async ({ body }) => {
-  return await createUser(body)
-})
+  return await createUser(body);
+});
 ```
 
 #### `router.put(path, handler)`
@@ -118,10 +124,11 @@ Add global middleware that runs for all routes.
 
 **Example**:
 ```typescript
+// Add global middleware that runs for all routes
 router.use(async ({ request }, next) => {
-  console.log(`${request.method} ${request.url}`)
-  await next()
-})
+  console.log(`${request.method} ${request.url}`);
+  await next(); // Continue to next middleware or handler
+});
 ```
 
 ### `router.build_routes()`
@@ -293,7 +300,8 @@ Start the server listening on the specified port.
 
 **Example**:
 ```typescript
-server.listen(3000)
+// Start the server listening on port 3000
+server.listen(3000);
 ```
 
 ### `server.fetch(request)`
@@ -307,9 +315,10 @@ Handle a single HTTP request. Useful for testing.
 
 **Example**:
 ```typescript
+// Handle a single HTTP request (useful for testing)
 const response = await server.fetch(
   new Request('http://localhost/api/users')
-)
+);
 ```
 
 ### `server.close()`
@@ -320,7 +329,8 @@ Stop the server and release resources.
 
 **Example**:
 ```typescript
-await server.close()
+// Stop the server and release resources
+await server.close();
 ```
 
 ### `server.get_bun_server()`
@@ -331,8 +341,9 @@ Get the underlying Bun server instance.
 
 **Example**:
 ```typescript
-const bun_server = server.get_bun_server()
-console.log(`Active requests: ${bun_server.pendingRequests}`)
+// Get the underlying Bun server instance
+const bun_server = server.get_bun_server();
+console.log(`Active requests: ${bun_server.pendingRequests}`);
 ```
 
 ## Middleware Functions
@@ -348,17 +359,18 @@ Error handling middleware that catches and formats errors.
 
 **Example**:
 ```typescript
-import { error_handler } from 'bunserve'
+// Configure error handler middleware
+import { error_handler } from 'bunserve';
 
 router.use(error_handler({
-  include_stack: true,
+  include_stack: true,  // Include stack traces in error responses
   format_error: (error, context) => ({
     error: error.message
   }),
   log_error: (error, context) => {
-    console.error(error)
+    console.error(error);
   }
-}))
+}));
 ```
 
 **ErrorHandlerOptions**:
@@ -381,15 +393,16 @@ CORS middleware for handling Cross-Origin Resource Sharing.
 
 **Example**:
 ```typescript
-import { cors } from 'bunserve'
+// Configure CORS middleware
+import { cors } from 'bunserve';
 
 router.use(cors({
-  origin: ['https://example.com'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowed_headers: ['Content-Type', 'Authorization'],
-  max_age: 86400
-}))
+  origin: ['https://example.com'],                      // Allowed origins
+  credentials: true,                                     // Allow cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],            // Allowed HTTP methods
+  allowed_headers: ['Content-Type', 'Authorization'],   // Allowed headers
+  max_age: 86400                                        // Preflight cache duration
+}));
 ```
 
 **CorsOptions**:
@@ -415,12 +428,13 @@ Request logging middleware.
 
 **Example**:
 ```typescript
-import { logger } from 'bunserve'
+// Configure logger middleware
+import { logger } from 'bunserve';
 
 router.use(logger({
-  format: 'dev',
-  skip: (path) => path === '/health'
-}))
+  format: 'dev',                          // Use dev format with colors
+  skip: (path) => path === '/health'      // Skip logging for health checks
+}));
 ```
 
 **LoggerOptions**:
@@ -473,17 +487,18 @@ Create a 500 Internal Server Error.
 
 **Example**:
 ```typescript
-import { HttpError } from 'bunserve'
+import { HttpError } from 'bunserve';
 
-// Throw specific errors
-throw HttpError.not_found('User not found')
+// Throw specific HTTP errors
+throw HttpError.not_found('User not found');
 
+// Throw error with additional details
 throw HttpError.bad_request('Invalid input', {
   fields: ['email', 'password']
-})
+});
 
-// Create custom status
-throw new HttpError(418, "I'm a teapot")
+// Create custom HTTP status error
+throw new HttpError(418, "I'm a teapot");
 ```
 
 ## Health Check Functions
@@ -499,19 +514,22 @@ Create a health check handler.
 
 **Example**:
 ```typescript
-import { create_health_check } from 'bunserve'
+// Create a health check endpoint with dependency checks
+import { create_health_check } from 'bunserve';
 
 router.get('/health', create_health_check({
   checks: {
     database: async () => {
-      return await checkDatabase()
+      // Check if database is accessible
+      return await checkDatabase();
     },
     redis: async () => {
-      return await checkRedis()
+      // Check if Redis is accessible
+      return await checkRedis();
     }
   },
-  include_system_info: true
-}))
+  include_system_info: true  // Include system metrics in response
+}));
 ```
 
 **HealthCheckOptions**:
@@ -555,9 +573,10 @@ Initialize context for the current request.
 
 **Example**:
 ```typescript
-import { Context } from 'bunserve'
+// Initialize context for the current request
+import { Context } from 'bunserve';
 
-Context.init()
+Context.init();
 ```
 
 ### `Context.set(data)`
@@ -569,10 +588,11 @@ Set context data for the current request.
 
 **Example**:
 ```typescript
+// Set context data for the current request
 Context.set({
   user_id: '123',
   request_id: 'abc-def'
-})
+});
 ```
 
 ### `Context.get<T>()`
@@ -583,8 +603,9 @@ Get context data for the current request.
 
 **Example**:
 ```typescript
-const ctx = Context.get<{ user_id: string }>()
-console.log(ctx?.user_id)
+// Get typed context data for the current request
+const ctx = Context.get<{ user_id: string }>();
+console.log(ctx?.user_id);
 ```
 
 ## Presets
@@ -650,19 +671,19 @@ BunServe is fully typed with TypeScript:
 - Response type validation
 
 ```typescript
-// TypeScript infers the parameter types automatically
+// TypeScript infers the parameter types automatically from the route path
 router.get('/users/:userId/posts/:postId', ({ params }) => {
   // params is typed as { userId: string; postId: string }
-  const userId: string = params.userId
-  const postId: string = params.postId
+  const userId: string = params.userId;
+  const postId: string = params.postId;
 
-  return { userId, postId }
-})
+  return { userId, postId };
+});
 ```
 
 ## Next Steps
 
-- **[Getting Started](./getting-started.md)** - Basic setup guide
-- **[Routing Guide](./routing.md)** - Learn about routing patterns
-- **[Middleware](./middleware.md)** - Middleware patterns
-- **[Examples](./examples.md)** - Complete working examples
+- **[Getting Started](./02-getting-started.md)** - Basic setup guide
+- **[Routing Guide](./03-routing.md)** - Learn about routing patterns
+- **[Middleware](./04-middleware.md)** - Middleware patterns
+- **[Examples](./07-examples.md)** - Complete working examples

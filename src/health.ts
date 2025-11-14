@@ -6,20 +6,20 @@
  * Health check function type.
  * Returns true if check passes, false otherwise.
  */
-export type HealthCheck = () => Promise<boolean> | boolean
+export type HealthCheck = () => Promise<boolean> | boolean;
 
 /**
  * Health check result.
  */
 export interface HealthCheckResult {
   /** Overall health status */
-  status: 'healthy' | 'unhealthy' | 'degraded'
+  status: 'healthy' | 'unhealthy' | 'degraded';
   /** Timestamp of the health check */
-  timestamp: string
+  timestamp: string;
   /** Uptime in seconds */
-  uptime: number
+  uptime: number;
   /** Individual check results */
-  checks?: Record<string, boolean>
+  checks?: Record<string, boolean>;
 }
 
 /**
@@ -27,9 +27,9 @@ export interface HealthCheckResult {
  */
 export interface HealthCheckOptions {
   /** Custom health checks to run */
-  checks?: Record<string, HealthCheck>
+  checks?: Record<string, HealthCheck>;
   /** Include system information in response */
-  include_system_info?: boolean
+  include_system_info?: boolean;
 }
 
 /**
@@ -64,28 +64,28 @@ export interface HealthCheckOptions {
  * ```
  */
 export function create_health_check(options: HealthCheckOptions = {}) {
-  const { checks = {}, include_system_info = false } = options
+  const { checks = {}, include_system_info = false } = options;
 
   return async (): Promise<HealthCheckResult> => {
-    const start_time = performance.now()
-    const check_results: Record<string, boolean> = {}
+    const start_time = performance.now();
+    const check_results: Record<string, boolean> = {};
 
     // Run all health checks
     for (const [name, check] of Object.entries(checks)) {
       try {
-        check_results[name] = await check()
+        check_results[name] = await check();
       } catch {
-        check_results[name] = false
+        check_results[name] = false;
       }
     }
 
     // Determine overall status
-    const all_passed = Object.values(check_results).every(v => v === true)
-    const any_passed = Object.values(check_results).some(v => v === true)
+    const all_passed = Object.values(check_results).every((v) => v === true);
+    const any_passed = Object.values(check_results).some((v) => v === true);
 
-    let status: 'healthy' | 'unhealthy' | 'degraded' = 'healthy'
+    let status: 'healthy' | 'unhealthy' | 'degraded' = 'healthy';
     if (!all_passed) {
-      status = any_passed ? 'degraded' : 'unhealthy'
+      status = any_passed ? 'degraded' : 'unhealthy';
     }
 
     const result: HealthCheckResult = {
@@ -93,29 +93,29 @@ export function create_health_check(options: HealthCheckOptions = {}) {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       ...(Object.keys(checks).length > 0 && { checks: check_results })
-    }
+    };
 
     // Add system info if requested
     if (include_system_info) {
-      const memory = process.memoryUsage()
+      const memory = process.memoryUsage();
       const sys_info = {
         memory: {
-          heap_used: Math.round(memory.heapUsed / 1024 / 1024) + 'MB',
-          heap_total: Math.round(memory.heapTotal / 1024 / 1024) + 'MB',
-          rss: Math.round(memory.rss / 1024 / 1024) + 'MB'
+          heap_used: `${Math.round(memory.heapUsed / 1024 / 1024)}MB`,
+          heap_total: `${Math.round(memory.heapTotal / 1024 / 1024)}MB`,
+          rss: `${Math.round(memory.rss / 1024 / 1024)}MB`
         },
         process: {
           pid: process.pid,
           platform: process.platform,
           version: process.version
         },
-        response_time: Math.round(performance.now() - start_time) + 'ms'
-      }
-      Object.assign(result, { system: sys_info })
+        response_time: `${Math.round(performance.now() - start_time)}ms`
+      };
+      Object.assign(result, { system: sys_info });
     }
 
-    return result
-  }
+    return result;
+  };
 }
 
 /**
@@ -127,5 +127,5 @@ export function simple_health_check() {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
-  })
+  });
 }

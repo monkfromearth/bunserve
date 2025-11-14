@@ -7,49 +7,49 @@ Complete guide to routing in BunServe, including parameters, wildcards, and adva
 Define routes using HTTP method functions:
 
 ```typescript
-import { create_router } from 'bunserve'
+import { create_router } from 'bunserve';
 
-const router = create_router()
+const router = create_router();
 
-// GET request
+// GET request - retrieve a list of users
 router.get('/users', () => {
-  return { users: [] }
-})
+  return { users: [] };
+});
 
-// POST request
+// POST request - create a new user
 router.post('/users', async ({ body }) => {
-  return { created: true, user: body }
-})
+  return { created: true, user: body };
+});
 
-// PUT request
+// PUT request - update/replace an entire user resource
 router.put('/users/:id', async ({ params, body }) => {
-  return { updated: true, id: params.id }
-})
+  return { updated: true, id: params.id };
+});
 
-// DELETE request
+// DELETE request - remove a user by ID
 router.delete('/users/:id', ({ params }) => {
-  return { deleted: true, id: params.id }
-})
+  return { deleted: true, id: params.id };
+});
 
-// PATCH request
+// PATCH request - partially update a user
 router.patch('/users/:id', async ({ params, body }) => {
-  return { patched: true, id: params.id }
-})
+  return { patched: true, id: params.id };
+});
 
-// OPTIONS request
+// OPTIONS request - typically used for CORS preflight
 router.options('/users', () => {
-  return null // Usually handled by CORS middleware
-})
+  return null; // Usually handled by CORS middleware
+});
 
-// HEAD request
+// HEAD request - like GET but returns only headers, no body
 router.head('/users', () => {
-  return null // Response body ignored, only headers sent
-})
+  return null; // Response body ignored, only headers sent
+});
 
-// All HTTP methods
+// All HTTP methods - matches GET, POST, PUT, DELETE, etc.
 router.all('/admin', () => {
-  return { admin: true }
-})
+  return { admin: true };
+});
 ```
 
 ## Route Parameters
@@ -59,15 +59,17 @@ Extract dynamic values from the URL path:
 ### Single Parameter
 
 ```typescript
+// Single dynamic parameter in the URL path
 router.get('/users/:id', ({ params }) => {
   // GET /users/123 -> params.id = "123"
-  return { user_id: params.id }
-})
+  return { user_id: params.id };
+});
 ```
 
 ### Multiple Parameters
 
 ```typescript
+// Multiple dynamic parameters in the URL path
 router.get('/users/:userId/posts/:postId', ({ params }) => {
   // GET /users/123/posts/456
   // params.userId = "123"
@@ -75,8 +77,8 @@ router.get('/users/:userId/posts/:postId', ({ params }) => {
   return {
     user: params.userId,
     post: params.postId
-  }
-})
+  };
+});
 ```
 
 ### Type Safety
@@ -84,14 +86,15 @@ router.get('/users/:userId/posts/:postId', ({ params }) => {
 TypeScript automatically infers parameter types:
 
 ```typescript
+// TypeScript automatically infers parameter types from the route path
 router.get('/posts/:postId/comments/:commentId', ({ params }) => {
   // TypeScript knows: params = { postId: string; commentId: string }
-  // Autocomplete works!
-  const postId: string = params.postId
-  const commentId: string = params.commentId
+  // Autocomplete works for params.postId and params.commentId!
+  const postId: string = params.postId;
+  const commentId: string = params.commentId;
 
-  return { postId, commentId }
-})
+  return { postId, commentId };
+});
 ```
 
 ### Parameter Validation
@@ -99,15 +102,18 @@ router.get('/posts/:postId/comments/:commentId', ({ params }) => {
 Validate parameters in your handler:
 
 ```typescript
+// Validate and parse route parameters
 router.get('/users/:id', ({ params }) => {
-  const id = parseInt(params.id)
+  // Parse the ID as an integer
+  const id = parseInt(params.id);
 
   if (isNaN(id)) {
-    throw HttpError.bad_request('Invalid user ID')
+    // Throw error if ID is not a valid number
+    throw HttpError.bad_request('Invalid user ID');
   }
 
-  return { user_id: id }
-})
+  return { user_id: id };
+});
 ```
 
 ## Wildcard Routes
@@ -117,15 +123,16 @@ Match multiple paths with wildcard patterns:
 ### Basic Wildcard
 
 ```typescript
-// Matches /api/anything, /api/foo/bar, etc.
+// Wildcard route - matches any path starting with /api/
 router.get('/api/*', ({ params }) => {
-  const path = params['*'] // Everything after /api/
+  // The * parameter captures everything after /api/
+  const path = params['*'];
 
   return {
     matched: 'wildcard',
     path: path
-  }
-})
+  };
+});
 
 // Examples:
 // GET /api/users -> path = "users"
@@ -136,23 +143,24 @@ router.get('/api/*', ({ params }) => {
 ### Wildcard with Prefix
 
 ```typescript
-// Admin routes
+// Admin routes with wildcard and middleware
 router.get('/admin/*', [requireAdmin], ({ params }) => {
-  const resource = params['*']
+  // Capture the admin resource path
+  const resource = params['*'];
 
   return {
     admin_resource: resource
-  }
-})
+  };
+});
 
-// API versioning
+// API versioning with wildcard
 router.get('/api/v*/*', ({ params }) => {
-  // Captures version and path
+  // Captures version and path from the wildcard
   return {
     version: params['*'].split('/')[0],
     path: params['*'].split('/').slice(1).join('/')
-  }
-})
+  };
+});
 ```
 
 ### Route Precedence
@@ -160,26 +168,26 @@ router.get('/api/v*/*', ({ params }) => {
 More specific routes take precedence over wildcards:
 
 ```typescript
-// These are matched in order of specificity:
+// Routes are matched in order of specificity by Bun's router:
 
-// 1. Exact match (most specific)
+// 1. Exact match (most specific) - matches /api/users/me exactly
 router.get('/api/users/me', () => {
-  return { current_user: true }
-})
+  return { current_user: true };
+});
 
-// 2. Parameter match
+// 2. Parameter match - matches /api/users/:id pattern
 router.get('/api/users/:id', ({ params }) => {
-  return { user_id: params.id }
-})
+  return { user_id: params.id };
+});
 
-// 3. Wildcard match (least specific)
+// 3. Wildcard match (least specific) - matches anything under /api/
 router.get('/api/*', ({ params }) => {
-  return { wildcard: params['*'] }
-})
+  return { wildcard: params['*'] };
+});
 
-// GET /api/users/me -> Matches route 1
-// GET /api/users/123 -> Matches route 2
-// GET /api/posts -> Matches route 3
+// GET /api/users/me -> Matches route 1 (exact)
+// GET /api/users/123 -> Matches route 2 (parameter)
+// GET /api/posts -> Matches route 3 (wildcard)
 ```
 
 ## Query Parameters
@@ -187,11 +195,13 @@ router.get('/api/*', ({ params }) => {
 Access URL query strings:
 
 ```typescript
+// Access and parse query string parameters
 router.get('/search', ({ query }) => {
-  const searchTerm = query.q || ''
-  const page = parseInt(query.page || '1')
-  const limit = parseInt(query.limit || '10')
-  const sortBy = query.sort || 'created_at'
+  // Extract query parameters with defaults
+  const searchTerm = query.q || '';
+  const page = parseInt(query.page || '1');
+  const limit = parseInt(query.limit || '10');
+  const sortBy = query.sort || 'created_at';
 
   return {
     query: searchTerm,
@@ -199,8 +209,8 @@ router.get('/search', ({ query }) => {
     limit,
     sort: sortBy,
     results: [] // Your search results
-  }
-})
+  };
+});
 
 // GET /search?q=hello&page=2&limit=20&sort=name
 ```
@@ -210,15 +220,18 @@ router.get('/search', ({ query }) => {
 Handle query parameters with multiple values:
 
 ```typescript
+// Handle multiple values for the same query parameter
 router.get('/filter', ({ request }) => {
-  const url = new URL(request.url)
-  const tags = url.searchParams.getAll('tag')
+  // Parse URL to access searchParams API
+  const url = new URL(request.url);
+  // Get all values for the 'tag' parameter
+  const tags = url.searchParams.getAll('tag');
 
   return {
     tags: tags, // ['javascript', 'typescript', 'bun']
     filtered_results: []
-  }
-})
+  };
+});
 
 // GET /filter?tag=javascript&tag=typescript&tag=bun
 ```
@@ -230,23 +243,26 @@ Handle different content types:
 ### JSON Body
 
 ```typescript
+// Handle JSON request body
 router.post('/api/users', async ({ body, set }) => {
-  // body is automatically parsed for application/json
+  // body is automatically parsed for application/json Content-Type
   const user = {
     id: crypto.randomUUID(),
     name: body.name,
     email: body.email,
     created_at: new Date().toISOString()
-  }
+  };
 
-  set.status = 201
-  return user
-})
+  // Set 201 Created status for resource creation
+  set.status = 201;
+  return user;
+});
 ```
 
 ### Form Data
 
 ```typescript
+// Handle form-encoded data
 router.post('/upload', async ({ body }) => {
   // body is automatically parsed for application/x-www-form-urlencoded
   return {
@@ -254,35 +270,37 @@ router.post('/upload', async ({ body }) => {
       username: body.username,
       password: body.password
     }
-  }
-})
+  };
+});
 ```
 
 ### Multipart Form Data
 
 ```typescript
+// Handle multipart form data for file uploads
 router.post('/upload-file', async ({ body }) => {
-  // body is FormData for multipart/form-data
-  const file = body.get('file') as File
+  // body is FormData for multipart/form-data Content-Type
+  const file = body.get('file') as File;
 
   return {
     filename: file.name,
     size: file.size,
     type: file.type
-  }
-})
+  };
+});
 ```
 
 ### Raw Body
 
 ```typescript
+// Handle raw body text for custom content types
 router.post('/webhook', async ({ body }) => {
   // body is the raw text for other content types
   return {
     received: body.length,
     data: body
-  }
-})
+  };
+});
 ```
 
 ## Route Groups
@@ -500,31 +518,33 @@ for (const resource of resources) {
 ### 1. Use Type-Safe Parameters
 
 ```typescript
-// Good
+// Good - use type-safe params
 router.get('/users/:id', ({ params }) => {
-  const userId = params.id // Type-safe!
-  return { userId }
-})
+  const userId = params.id; // Type-safe! TypeScript knows params.id exists
+  return { userId };
+});
 
-// Avoid
+// Avoid - manual parsing loses type safety
 router.get('/users/:id', ({ request }) => {
-  // Manual parsing, no type safety
-  const userId = new URL(request.url).pathname.split('/')[2]
-})
+  // Manual parsing, no type safety, error-prone
+  const userId = new URL(request.url).pathname.split('/')[2];
+});
 ```
 
 ### 2. Validate Input
 
 ```typescript
+// Validate input before processing
 router.post('/api/users', async ({ body, set }) => {
+  // Check for required fields
   if (!body.email || !body.name) {
-    set.status = 400
-    return { error: 'Email and name are required' }
+    set.status = 400;
+    return { error: 'Email and name are required' };
   }
 
   // Process valid input
-  return { user: body }
-})
+  return { user: body };
+});
 ```
 
 ### 3. Use Wildcards Sparingly
@@ -556,7 +576,7 @@ router.get('/api/admin/*', [requireAdmin], ({ params }) => {
 
 ## Next Steps
 
-- **[Middleware](./middleware.md)** - Add authentication, logging, and more
+- **[Middleware](./04-middleware.md)** - Add authentication, logging, and more
 - **[Response Handling](./responses.md)** - Different response types
-- **[Error Handling](./error-handling.md)** - Handle errors gracefully
-- **[Examples](./examples.md)** - Complete example applications
+- **[Error Handling](./05-error-handling.md)** - Handle errors gracefully
+- **[Examples](./07-examples.md)** - Complete example applications
