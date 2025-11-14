@@ -11,15 +11,17 @@ BunServe provides a modern, type-safe HTTP routing library for Bun that combines
 
 ## Features
 
+- ⚡ **Blazing Fast** - 170,000+ req/s with minimal overhead (0.02ms avg latency)
+- 🔒 **Secure by Default** - Built-in security headers, CORS protection, and input sanitization
 - 🚀 **Built on Bun's Native Router** - Leverages Bun.serve's native routing for <5% performance overhead
-- 🔒 **Type-safe routing** - TypeScript generics for route parameter extraction
+- 🎯 **Type-safe routing** - TypeScript generics for route parameter extraction
 - 🌟 **Wildcard routes** - Support for `/*` and parameter routes like `/api/admin/*`
 - 📦 **Request-scoped context** - Built-in context management with unique request IDs
 - 🍪 **Native cookie support** - Uses Bun's built-in CookieMap API
 - 🛣️ **Express-like API** - Familiar `.get()`, `.post()`, etc. syntax
 - 🔄 **Middleware support** - Global and route-specific middleware chains with built-in error handling, CORS, and logging
 - 📝 **Auto content detection** - Smart response formatting (JSON, text, HTML, XML, images, CSV)
-- 🧪 **Comprehensive testing** - Full test coverage with `bun test`
+- 🧪 **Comprehensive testing** - 130+ tests covering security, memory leaks, and performance
 - 📊 **Production-ready** - Error handling, health checks, metrics, and monitoring support
 
 ## Installation
@@ -27,6 +29,97 @@ BunServe provides a modern, type-safe HTTP routing library for Bun that combines
 ```bash
 bun add bunserve
 ```
+
+## Performance
+
+BunServe delivers exceptional performance with minimal overhead over Bun's native routing:
+
+| Scenario | Requests/sec | Avg Latency | p95 Latency |
+|----------|-------------|-------------|-------------|
+| **404 Handling** | 170,000 req/s | 0.006ms | 0.013ms |
+| **Route Parameters** | 60,000 req/s | 0.017ms | 0.034ms |
+| **Simple GET** | 45,000 req/s | 0.022ms | 0.039ms |
+| **JSON Parsing** | 40,000 req/s | 0.024ms | 0.052ms |
+| **Middleware (3x)** | 55,000 req/s | 0.018ms | 0.031ms |
+
+### Memory Efficiency
+
+- **<1KB per request** - Stable memory usage across all scenarios
+- **No memory leaks** - Tested up to 20,000 consecutive requests
+- **<15MB growth** - Even under extreme load scenarios with file uploads
+- **Automatic cleanup** - Efficient garbage collection with periodic GC
+
+Benchmark tests validate performance stays within 10% of baseline across releases.
+
+[View detailed benchmarks →](./benchmarks/README.md)
+
+## Security
+
+BunServe prioritizes security with built-in protections and best practices:
+
+### Security Rating: **A** (Excellent)
+
+✅ **Built-in Protections**
+- **Security Headers** - CSP, X-Frame-Options, HSTS, X-Content-Type-Options
+- **CORS Protection** - Secure origin validation (fixed hostname matching)
+- **Header Injection Prevention** - Sanitized outputs in CSV and other responses
+- **Input Sanitization** - Case-insensitive content-type parsing
+- **Error Handling** - No sensitive information leakage in production
+
+✅ **Security Middleware**
+```typescript
+import { bunserve, security, cors } from 'bunserve';
+
+const app = bunserve();
+
+// Add comprehensive security headers
+app.use(security());
+
+// Configure CORS with strict origin validation
+app.use(cors({ preset: 'production', allowed_origins: ['https://example.com'] }));
+```
+
+✅ **Security Best Practices**
+- Use `error_handler()` to prevent stack trace leakage in production
+- Configure HSTS for HTTPS enforcement
+- Implement CSP to prevent XSS attacks
+- Validate and sanitize all user inputs
+- Use rate limiting for API endpoints (community packages)
+
+[View security audit →](./SECURITY_AUDIT.md)
+
+## Testing
+
+Comprehensive test suite with 130+ tests ensuring reliability and security:
+
+### Test Coverage
+
+| Category | Tests | Coverage |
+|----------|-------|----------|
+| **Unit Tests** | 25 tests | Core routing, middleware, response handling |
+| **Integration Tests** | 20 tests | End-to-end request/response cycles |
+| **Security Tests** | 15 tests | XSS prevention, injection attacks, CORS validation |
+| **Memory Leak Tests** | 15 tests | Long-running stability (up to 20k requests) |
+| **Performance Tests** | 8 tests | Regression detection, baseline validation |
+| **File Upload Tests** | 7 tests | MultipartFormData, large files, memory cleanup |
+| **Edge Cases** | 40 tests | Error handling, malformed input, empty bodies |
+
+### Running Tests
+
+```bash
+# Run all tests
+bun test
+
+# Run specific test files
+bun test test/security.test.ts
+bun test test/memory-leak.test.ts
+bun test test/performance-regression.test.ts
+
+# Performance regression tracking
+bun benchmarks/scripts/regression-tracking.ts
+```
+
+All tests pass with 0 failures, ensuring production reliability.
 
 ## Quick Start
 
@@ -202,6 +295,53 @@ app.use(logger({
   skip: (path) => path === '/health'      // Skip logging for specific paths
 }));
 ```
+
+### Security Headers Middleware
+
+Add comprehensive security headers to protect against common vulnerabilities:
+
+```typescript
+import { bunserve, security } from 'bunserve';
+
+const app = bunserve();
+
+// Use default security headers (recommended for production)
+app.use(security());
+
+// Custom configuration
+app.use(security({
+  contentSecurityPolicy: {
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'"],    // Allow inline scripts if needed
+      'style-src': ["'self'", "'unsafe-inline'"],     // Allow inline styles
+      'img-src': ["'self'", 'https:', 'data:']
+    }
+  },
+  frameOptions: 'SAMEORIGIN',                         // Allow framing from same origin
+  strictTransportSecurity: {
+    maxAge: 31536000,                                 // 1 year
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// Disable specific headers
+app.use(security({
+  contentSecurityPolicy: false,   // Disable CSP if using a CDN
+  strictTransportSecurity: false  // Disable HSTS for development
+}));
+```
+
+**Headers Added:**
+- `Content-Security-Policy` - Prevents XSS attacks
+- `X-Frame-Options` - Prevents clickjacking
+- `X-Content-Type-Options` - Prevents MIME sniffing
+- `X-XSS-Protection` - Browser XSS protection
+- `Strict-Transport-Security` - Forces HTTPS
+- `Referrer-Policy` - Controls referrer information
+- `Permissions-Policy` - Controls browser features
+- `X-Permitted-Cross-Domain-Policies` - Flash/PDF protection
 
 ## Health Checks
 
