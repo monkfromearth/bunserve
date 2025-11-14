@@ -607,19 +607,46 @@ class RouterImpl implements Router {
   }
 
   /**
-   * Add a global middleware that runs for all routes.
-   * @param middleware - Middleware function to add
+   * Add a global middleware or mount a sub-router at a path.
+   * @param middleware_or_path - Middleware function or path prefix
+   * @param router - Optional router to mount at the path
    */
-  use(middleware: Middleware): void {
-    this.global_middlewares.push(middleware);
+  use(middleware_or_path: Middleware | string, router?: Router): void {
+    if (typeof middleware_or_path === 'string' && router) {
+      // Mount sub-router at path - get all its routes and prepend path
+      const sub_router = router as RouterImpl;
+      const sub_routes = sub_router.registrations;
+
+      for (const route of sub_routes) {
+        // Prepend the mount path to each sub-route
+        const full_path = middleware_or_path + route.path;
+        this.registrations.push({
+          ...route,
+          path: full_path
+        });
+      }
+
+      // Also add sub-router's global middlewares
+      this.global_middlewares.push(...sub_router.global_middlewares);
+    } else {
+      // Add global middleware
+      this.global_middlewares.push(middleware_or_path as Middleware);
+    }
   }
 }
 
 /**
  * Factory function to create a new router instance.
+ * Used for creating sub-routers that can be mounted on the main app.
  * @returns New router instance
+ * @example
+ * ```typescript
+ * const api_router = router();
+ * api_router.get('/posts', handler);
+ * app.use('/api', api_router);
+ * ```
  */
-export function create_router(): Router {
+export function router(): Router {
   return new RouterImpl();
 }
 

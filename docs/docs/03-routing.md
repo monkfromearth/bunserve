@@ -7,47 +7,47 @@ Complete guide to routing in BunServe, including parameters, wildcards, and adva
 Define routes using HTTP method functions:
 
 ```typescript
-import { create_router } from 'bunserve';
+import { bunserve } from 'bunserve';
 
-const router = create_router();
+const app = bunserve();
 
 // GET request - retrieve a list of users
-router.get('/users', () => {
+app.get('/users', () => {
   return { users: [] };
 });
 
 // POST request - create a new user
-router.post('/users', async ({ body }) => {
+app.post('/users', async ({ body }) => {
   return { created: true, user: body };
 });
 
 // PUT request - update/replace an entire user resource
-router.put('/users/:id', async ({ params, body }) => {
+app.put('/users/:id', async ({ params, body }) => {
   return { updated: true, id: params.id };
 });
 
 // DELETE request - remove a user by ID
-router.delete('/users/:id', ({ params }) => {
+app.delete('/users/:id', ({ params }) => {
   return { deleted: true, id: params.id };
 });
 
 // PATCH request - partially update a user
-router.patch('/users/:id', async ({ params, body }) => {
+app.patch('/users/:id', async ({ params, body }) => {
   return { patched: true, id: params.id };
 });
 
 // OPTIONS request - typically used for CORS preflight
-router.options('/users', () => {
+app.options('/users', () => {
   return null; // Usually handled by CORS middleware
 });
 
 // HEAD request - like GET but returns only headers, no body
-router.head('/users', () => {
+app.head('/users', () => {
   return null; // Response body ignored, only headers sent
 });
 
 // All HTTP methods - matches GET, POST, PUT, DELETE, etc.
-router.all('/admin', () => {
+app.all('/admin', () => {
   return { admin: true };
 });
 ```
@@ -60,7 +60,7 @@ Extract dynamic values from the URL path:
 
 ```typescript
 // Single dynamic parameter in the URL path
-router.get('/users/:id', ({ params }) => {
+app.get('/users/:id', ({ params }) => {
   // GET /users/123 -> params.id = "123"
   return { user_id: params.id };
 });
@@ -70,7 +70,7 @@ router.get('/users/:id', ({ params }) => {
 
 ```typescript
 // Multiple dynamic parameters in the URL path
-router.get('/users/:userId/posts/:postId', ({ params }) => {
+app.get('/users/:userId/posts/:postId', ({ params }) => {
   // GET /users/123/posts/456
   // params.userId = "123"
   // params.postId = "456"
@@ -87,7 +87,7 @@ TypeScript automatically infers parameter types:
 
 ```typescript
 // TypeScript automatically infers parameter types from the route path
-router.get('/posts/:postId/comments/:commentId', ({ params }) => {
+app.get('/posts/:postId/comments/:commentId', ({ params }) => {
   // TypeScript knows: params = { postId: string; commentId: string }
   // Autocomplete works for params.postId and params.commentId!
   const postId: string = params.postId;
@@ -103,13 +103,15 @@ Validate parameters in your handler:
 
 ```typescript
 // Validate and parse route parameters
-router.get('/users/:id', ({ params }) => {
+app.get('/users/:id', ({ params }) => {
   // Parse the ID as an integer
   const id = parseInt(params.id);
 
   if (isNaN(id)) {
     // Throw error if ID is not a valid number
-    throw HttpError.bad_request('Invalid user ID');
+    const error: any = new Error('Invalid user ID');
+    error.status = 400;
+    throw error;
   }
 
   return { user_id: id };
@@ -124,7 +126,7 @@ Match multiple paths with wildcard patterns:
 
 ```typescript
 // Wildcard route - matches any path starting with /api/
-router.get('/api/*', ({ params }) => {
+app.get('/api/*', ({ params }) => {
   // The * parameter captures everything after /api/
   const path = params['*'];
 
@@ -144,7 +146,7 @@ router.get('/api/*', ({ params }) => {
 
 ```typescript
 // Admin routes with wildcard and middleware
-router.get('/admin/*', [requireAdmin], ({ params }) => {
+app.get('/admin/*', [requireAdmin], ({ params }) => {
   // Capture the admin resource path
   const resource = params['*'];
 
@@ -154,7 +156,7 @@ router.get('/admin/*', [requireAdmin], ({ params }) => {
 });
 
 // API versioning with wildcard
-router.get('/api/v*/*', ({ params }) => {
+app.get('/api/v*/*', ({ params }) => {
   // Captures version and path from the wildcard
   return {
     version: params['*'].split('/')[0],
@@ -171,17 +173,17 @@ More specific routes take precedence over wildcards:
 // Routes are matched in order of specificity by Bun's router:
 
 // 1. Exact match (most specific) - matches /api/users/me exactly
-router.get('/api/users/me', () => {
+app.get('/api/users/me', () => {
   return { current_user: true };
 });
 
 // 2. Parameter match - matches /api/users/:id pattern
-router.get('/api/users/:id', ({ params }) => {
+app.get('/api/users/:id', ({ params }) => {
   return { user_id: params.id };
 });
 
 // 3. Wildcard match (least specific) - matches anything under /api/
-router.get('/api/*', ({ params }) => {
+app.get('/api/*', ({ params }) => {
   return { wildcard: params['*'] };
 });
 
@@ -196,7 +198,7 @@ Access URL query strings:
 
 ```typescript
 // Access and parse query string parameters
-router.get('/search', ({ query }) => {
+app.get('/search', ({ query }) => {
   // Extract query parameters with defaults
   const searchTerm = query.q || '';
   const page = parseInt(query.page || '1');
@@ -221,7 +223,7 @@ Handle query parameters with multiple values:
 
 ```typescript
 // Handle multiple values for the same query parameter
-router.get('/filter', ({ request }) => {
+app.get('/filter', ({ request }) => {
   // Parse URL to access searchParams API
   const url = new URL(request.url);
   // Get all values for the 'tag' parameter
@@ -244,7 +246,7 @@ Handle different content types:
 
 ```typescript
 // Handle JSON request body
-router.post('/api/users', async ({ body, set }) => {
+app.post('/api/users', async ({ body, set }) => {
   // body is automatically parsed for application/json Content-Type
   const user = {
     id: crypto.randomUUID(),
@@ -263,7 +265,7 @@ router.post('/api/users', async ({ body, set }) => {
 
 ```typescript
 // Handle form-encoded data
-router.post('/upload', async ({ body }) => {
+app.post('/upload', async ({ body }) => {
   // body is automatically parsed for application/x-www-form-urlencoded
   return {
     received: {
@@ -278,7 +280,7 @@ router.post('/upload', async ({ body }) => {
 
 ```typescript
 // Handle multipart form data for file uploads
-router.post('/upload-file', async ({ body }) => {
+app.post('/upload-file', async ({ body }) => {
   // body is FormData for multipart/form-data Content-Type
   const file = body.get('file') as File;
 
@@ -294,7 +296,7 @@ router.post('/upload-file', async ({ body }) => {
 
 ```typescript
 // Handle raw body text for custom content types
-router.post('/webhook', async ({ body }) => {
+app.post('/webhook', async ({ body }) => {
   // body is the raw text for other content types
   return {
     received: body.length,
@@ -308,66 +310,75 @@ router.post('/webhook', async ({ body }) => {
 Organize related routes:
 
 ```typescript
-// User routes
-const setupUserRoutes = (router: Router) => {
-  router.get('/api/users', () => { /* ... */ })
-  router.get('/api/users/:id', ({ params }) => { /* ... */ })
-  router.post('/api/users', async ({ body }) => { /* ... */ })
-  router.put('/api/users/:id', async ({ params, body }) => { /* ... */ })
-  router.delete('/api/users/:id', ({ params }) => { /* ... */ })
+import { bunserve } from 'bunserve';
+
+const app = bunserve();
+
+// User routes helper
+const setupUserRoutes = () => {
+  app.get('/api/users', () => { /* ... */ })
+  app.get('/api/users/:id', ({ params }) => { /* ... */ })
+  app.post('/api/users', async ({ body }) => { /* ... */ })
+  app.put('/api/users/:id', async ({ params, body }) => { /* ... */ })
+  app.delete('/api/users/:id', ({ params }) => { /* ... */ })
 }
 
-// Post routes
-const setupPostRoutes = (router: Router) => {
-  router.get('/api/posts', () => { /* ... */ })
-  router.get('/api/posts/:id', ({ params }) => { /* ... */ })
-  router.post('/api/posts', async ({ body }) => { /* ... */ })
+// Post routes helper
+const setupPostRoutes = () => {
+  app.get('/api/posts', () => { /* ... */ })
+  app.get('/api/posts/:id', ({ params }) => { /* ... */ })
+  app.post('/api/posts', async ({ body }) => { /* ... */ })
 }
 
-// Apply to router
-const router = create_router()
-setupUserRoutes(router)
-setupPostRoutes(router)
+// Register all routes
+setupUserRoutes()
+setupPostRoutes()
 ```
 
 ## Sub-Routers
 
-Create modular route definitions:
+Create modular route definitions with sub-routers:
 
 ```typescript
 // users-router.ts
+import { router } from 'bunserve';
+
 export function createUserRouter() {
-  const router = create_router()
+  const userRouter = router();
 
-  router.get('/users', () => ({ users: [] }))
-  router.get('/users/:id', ({ params }) => ({ id: params.id }))
-  router.post('/users', async ({ body }) => ({ created: true }))
+  userRouter.get('/users', () => ({ users: [] }));
+  userRouter.get('/users/:id', ({ params }) => ({ id: params.id }));
+  userRouter.post('/users', async ({ body }) => ({ created: true }));
 
-  return router
+  return userRouter;
 }
 
 // posts-router.ts
+import { router } from 'bunserve';
+
 export function createPostRouter() {
-  const router = create_router()
+  const postRouter = router();
 
-  router.get('/posts', () => ({ posts: [] }))
-  router.get('/posts/:id', ({ params }) => ({ id: params.id }))
+  postRouter.get('/posts', () => ({ posts: [] }));
+  postRouter.get('/posts/:id', ({ params }) => ({ id: params.id }));
 
-  return router
+  return postRouter;
 }
 
-// main.ts
-import { createUserRouter } from './users-router'
-import { createPostRouter } from './posts-router'
+// main.ts - Use sub-routers with the main app
+import { bunserve } from 'bunserve';
+import { createUserRouter } from './users-router';
+import { createPostRouter } from './posts-router';
 
-const router = create_router()
+const app = bunserve();
 
-// Apply sub-routers
-const userRouter = createUserRouter()
-const postRouter = createPostRouter()
+// Create sub-routers
+const userRouter = createUserRouter();
+const postRouter = createPostRouter();
 
-// Copy routes to main router
-// (Note: BunServe will support this natively in future versions)
+// Mount sub-routers under specific paths
+app.use('/api', userRouter);
+app.use('/api', postRouter);
 ```
 
 ## Route Metadata
@@ -382,7 +393,7 @@ Add metadata to routes for documentation:
  * @param {string} id - User ID
  * @returns {User} User object
  */
-router.get('/api/users/:id', ({ params }) => {
+app.get('/api/users/:id', ({ params }) => {
   return getUserById(params.id)
 })
 
@@ -397,7 +408,7 @@ function documentedRoute<T>(
   return handler
 }
 
-router.get('/api/users/:id',
+app.get('/api/users/:id',
   documentedRoute('GET', '/api/users/:id', 'Get user by ID',
     ({ params }) => getUserById(params.id)
   )
@@ -410,45 +421,45 @@ Follow REST conventions:
 
 ```typescript
 // Collection operations
-router.get('/api/users', () => {
+app.get('/api/users', () => {
   // List all users
   return { users: [] }
 })
 
-router.post('/api/users', async ({ body }) => {
+app.post('/api/users', async ({ body }) => {
   // Create new user
   return { user: body }
 })
 
 // Resource operations
-router.get('/api/users/:id', ({ params }) => {
+app.get('/api/users/:id', ({ params }) => {
   // Get specific user
   return { user: { id: params.id } }
 })
 
-router.put('/api/users/:id', async ({ params, body }) => {
+app.put('/api/users/:id', async ({ params, body }) => {
   // Replace user
   return { user: body }
 })
 
-router.patch('/api/users/:id', async ({ params, body }) => {
+app.patch('/api/users/:id', async ({ params, body }) => {
   // Update user partially
   return { user: body }
 })
 
-router.delete('/api/users/:id', ({ params, set }) => {
+app.delete('/api/users/:id', ({ params, set }) => {
   // Delete user
   set.status = 204
   return null
 })
 
 // Nested resources
-router.get('/api/users/:userId/posts', ({ params }) => {
+app.get('/api/users/:userId/posts', ({ params }) => {
   // List user's posts
   return { posts: [] }
 })
 
-router.post('/api/users/:userId/posts', async ({ params, body }) => {
+app.post('/api/users/:userId/posts', async ({ params, body }) => {
   // Create post for user
   return { post: body }
 })
@@ -460,12 +471,12 @@ router.post('/api/users/:userId/posts', async ({ params, body }) => {
 
 ```typescript
 // V1 routes
-router.get('/api/v1/users', () => {
+app.get('/api/v1/users', () => {
   return { version: 1, users: [] }
 })
 
 // V2 routes with breaking changes
-router.get('/api/v2/users', () => {
+app.get('/api/v2/users', () => {
   return {
     version: 2,
     data: [],
@@ -474,7 +485,7 @@ router.get('/api/v2/users', () => {
 })
 
 // Dynamic version handling
-router.get('/api/v*/users', ({ request }) => {
+app.get('/api/v*/users', ({ request }) => {
   const version = new URL(request.url).pathname.match(/v(\d+)/)?.[1]
 
   return {
@@ -490,7 +501,7 @@ router.get('/api/v*/users', ({ request }) => {
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 if (isDevelopment) {
-  router.get('/debug/routes', () => {
+  app.get('/debug/routes', () => {
     // Return all registered routes (for debugging)
     return { routes: [] }
   })
@@ -503,11 +514,11 @@ if (isDevelopment) {
 const resources = ['users', 'posts', 'comments']
 
 for (const resource of resources) {
-  router.get(`/api/${resource}`, () => {
+  app.get(`/api/${resource}`, () => {
     return { resource, items: [] }
   })
 
-  router.get(`/api/${resource}/:id`, ({ params }) => {
+  app.get(`/api/${resource}/:id`, ({ params }) => {
     return { resource, id: params.id }
   })
 }
@@ -519,13 +530,13 @@ for (const resource of resources) {
 
 ```typescript
 // Good - use type-safe params
-router.get('/users/:id', ({ params }) => {
+app.get('/users/:id', ({ params }) => {
   const userId = params.id; // Type-safe! TypeScript knows params.id exists
   return { userId };
 });
 
 // Avoid - manual parsing loses type safety
-router.get('/users/:id', ({ request }) => {
+app.get('/users/:id', ({ request }) => {
   // Manual parsing, no type safety, error-prone
   const userId = new URL(request.url).pathname.split('/')[2];
 });
@@ -535,7 +546,7 @@ router.get('/users/:id', ({ request }) => {
 
 ```typescript
 // Validate input before processing
-router.post('/api/users', async ({ body, set }) => {
+app.post('/api/users', async ({ body, set }) => {
   // Check for required fields
   if (!body.email || !body.name) {
     set.status = 400;
@@ -551,11 +562,11 @@ router.post('/api/users', async ({ body, set }) => {
 
 ```typescript
 // Good: Specific routes for common cases
-router.get('/api/users', () => { /* ... */ })
-router.get('/api/users/:id', ({ params }) => { /* ... */ })
+app.get('/api/users', () => { /* ... */ })
+app.get('/api/users/:id', ({ params }) => { /* ... */ })
 
 // Use wildcards for catch-all or admin routes
-router.get('/api/admin/*', [requireAdmin], ({ params }) => {
+app.get('/api/admin/*', [requireAdmin], ({ params }) => {
   // Handle any admin route
 })
 ```

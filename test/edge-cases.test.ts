@@ -1,14 +1,13 @@
 import { expect, test } from 'bun:test';
-import { create_router, create_server } from '../src';
+import { bunserve } from '../src';
 
 test('Empty route path throws or handles gracefully', async () => {
-  const router = create_router();
+  const app = bunserve();
 
   // Register empty path
-  router.get('/', () => 'root');
+  app.get('/', () => 'root');
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/'));
+  const response = await app.fetch(new Request('http://localhost/'));
 
   expect(response.status).toBe(200);
   const text = await response.text();
@@ -16,14 +15,13 @@ test('Empty route path throws or handles gracefully', async () => {
 });
 
 test('Route with special characters in params', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/users/:id', ({ params }) => {
+  app.get('/users/:id', ({ params }) => {
     return { id: params.id };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/users/user-123-test')
   );
 
@@ -33,23 +31,20 @@ test('Route with special characters in params', async () => {
 });
 
 test('Very long URL path', async () => {
-  const router = create_router();
+  const app = bunserve();
 
   const longPath = '/a'.repeat(1000);
-  router.get(longPath, () => 'long path');
+  app.get(longPath, () => 'long path');
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request(`http://localhost${longPath}`)
-  );
+  const response = await app.fetch(new Request(`http://localhost${longPath}`));
 
   expect(response.status).toBe(200);
 });
 
 test('Route with many parameters', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/a/:p1/b/:p2/c/:p3/d/:p4/e/:p5', ({ params }) => {
+  app.get('/a/:p1/b/:p2/c/:p3/d/:p4/e/:p5', ({ params }) => {
     return {
       p1: params.p1,
       p2: params.p2,
@@ -59,8 +54,7 @@ test('Route with many parameters', async () => {
     };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/a/1/b/2/c/3/d/4/e/5')
   );
 
@@ -74,14 +68,13 @@ test('Route with many parameters', async () => {
 });
 
 test('Query string with special characters', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/search', ({ query }) => {
+  app.get('/search', ({ query }) => {
     return { query };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/search?q=hello%20world&filter=type%3Auser')
   );
 
@@ -91,28 +84,26 @@ test('Query string with special characters', async () => {
 });
 
 test('Empty query string', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/search', ({ query }) => {
+  app.get('/search', ({ query }) => {
     return { query };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/search'));
+  const response = await app.fetch(new Request('http://localhost/search'));
 
   const data = await response.json();
   expect(data.query).toEqual({});
 });
 
 test('Duplicate query parameters (last value wins)', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/search', ({ query }) => {
+  app.get('/search', ({ query }) => {
     return { query };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/search?tag=a&tag=b&tag=c')
   );
 
@@ -122,18 +113,16 @@ test('Duplicate query parameters (last value wins)', async () => {
 });
 
 test('Large JSON payload in request body', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.post('/upload', async ({ body }) => {
+  app.post('/upload', async ({ body }) => {
     return { received: body.data.length };
   });
-
-  const server = create_server({ router });
 
   // Create large payload
   const largeArray = Array.from({ length: 10000 }, (_, i) => ({ id: i }));
 
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,15 +136,13 @@ test('Large JSON payload in request body', async () => {
 });
 
 test('Malformed JSON in request body returns 400', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.post('/data', ({ body }) => {
+  app.post('/data', ({ body }) => {
     return { received: true, body };
   });
 
-  const server = create_server({ router });
-
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -169,15 +156,13 @@ test('Malformed JSON in request body returns 400', async () => {
 });
 
 test('Request with no Content-Type header', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.post('/data', ({ body }) => {
+  app.post('/data', ({ body }) => {
     return { body };
   });
 
-  const server = create_server({ router });
-
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/data', {
       method: 'POST',
       body: 'plain text data'
@@ -188,28 +173,27 @@ test('Request with no Content-Type header', async () => {
 });
 
 test('Multiple global middleware execute in order', async () => {
-  const router = create_router();
+  const app = bunserve();
   const execution_order: string[] = [];
 
-  router.use(async (_context, next) => {
+  app.use(async (_context, next) => {
     execution_order.push('middleware1-before');
     await next();
     execution_order.push('middleware1-after');
   });
 
-  router.use(async (_context, next) => {
+  app.use(async (_context, next) => {
     execution_order.push('middleware2-before');
     await next();
     execution_order.push('middleware2-after');
   });
 
-  router.get('/test', () => {
+  app.get('/test', () => {
     execution_order.push('handler');
     return 'ok';
   });
 
-  const server = create_server({ router });
-  await server.fetch(new Request('http://localhost/test'));
+  await app.fetch(new Request('http://localhost/test'));
 
   expect(execution_order).toEqual([
     'middleware1-before',
@@ -221,48 +205,45 @@ test('Multiple global middleware execute in order', async () => {
 });
 
 test('Middleware can modify context.set before handler', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.use(async ({ set }, next) => {
+  app.use(async ({ set }, next) => {
     set.headers['X-Middleware'] = 'added';
     await next();
   });
 
-  router.get('/test', () => {
+  app.get('/test', () => {
     return 'ok';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/test'));
+  const response = await app.fetch(new Request('http://localhost/test'));
 
   expect(response.headers.get('X-Middleware')).toBe('added');
 });
 
 test('Middleware can modify response after handler', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.use(async ({ set }, next) => {
+  app.use(async ({ set }, next) => {
     await next();
     set.headers['X-After'] = 'added-after';
   });
 
-  router.get('/test', () => {
+  app.get('/test', () => {
     return 'ok';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/test'));
+  const response = await app.fetch(new Request('http://localhost/test'));
 
   expect(response.headers.get('X-After')).toBe('added-after');
 });
 
 test('Route not found returns 404', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/exists', () => 'found');
+  app.get('/exists', () => 'found');
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/does-not-exist')
   );
 
@@ -270,14 +251,12 @@ test('Route not found returns 404', async () => {
 });
 
 test('Unregistered path returns 404', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/resource', () => 'GET response');
-
-  const server = create_server({ router });
+  app.get('/resource', () => 'GET response');
 
   // Test a path that wasn't registered at all
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/not-found', { method: 'GET' })
   );
 
@@ -285,14 +264,13 @@ test('Unregistered path returns 404', async () => {
 });
 
 test('OPTIONS method with route.all', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.all('/resource', ({ request }) => {
+  app.all('/resource', ({ request }) => {
     return { method: request.method };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/resource', { method: 'OPTIONS' })
   );
 
@@ -302,14 +280,13 @@ test('OPTIONS method with route.all', async () => {
 });
 
 test('HEAD request', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.head('/resource', () => {
+  app.head('/resource', () => {
     return 'HEAD response';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/resource', { method: 'HEAD' })
   );
 
@@ -317,9 +294,9 @@ test('HEAD request', async () => {
 });
 
 test('Cookie with all options', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/set-cookie', ({ cookies }) => {
+  app.get('/set-cookie', ({ cookies }) => {
     cookies.set('session', 'abc123', {
       httpOnly: true,
       secure: true,
@@ -330,10 +307,7 @@ test('Cookie with all options', async () => {
     return 'cookie set';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request('http://localhost/set-cookie')
-  );
+  const response = await app.fetch(new Request('http://localhost/set-cookie'));
 
   const setCookie = response.headers.get('set-cookie');
 
@@ -353,15 +327,14 @@ test('Cookie with all options', async () => {
 });
 
 test('Delete cookie with path', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/delete-cookie', ({ cookies }) => {
+  app.get('/delete-cookie', ({ cookies }) => {
     cookies.delete('session', { path: '/api' });
     return 'cookie deleted';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/delete-cookie')
   );
 
@@ -379,15 +352,14 @@ test('Delete cookie with path', async () => {
 });
 
 test('Async route handler', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/async', async () => {
+  app.get('/async', async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     return { message: 'async response' };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/async'));
+  const response = await app.fetch(new Request('http://localhost/async'));
 
   expect(response.status).toBe(200);
   const data = await response.json();
@@ -395,47 +367,40 @@ test('Async route handler', async () => {
 });
 
 test('Throwing in async handler is caught', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/async-error', async () => {
+  app.get('/async-error', async () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     throw new Error('Async error');
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request('http://localhost/async-error')
-  );
+  const response = await app.fetch(new Request('http://localhost/async-error'));
 
   // Without error handler, might be 500 or 404
   expect(response.status).toBeGreaterThanOrEqual(400);
 });
 
 test('Wildcard route matches paths', async () => {
-  const router = create_router();
+  const app = bunserve();
 
   // Register wildcard route
-  router.get('/api/*', ({ params }) => ({
+  app.get('/api/*', ({ params }) => ({
     matched: 'wildcard',
     path: params['*']
   }));
 
   // Register specific route - Note: In Bun's native routing, registration order matters
   // and wildcards may take precedence depending on the implementation
-  router.get('/api/special', () => ({ matched: 'specific' }));
-
-  const server = create_server({ router });
+  app.get('/api/special', () => ({ matched: 'specific' }));
 
   // Wildcard should match paths under /api/
-  const response1 = await server.fetch(
-    new Request('http://localhost/api/posts')
-  );
+  const response1 = await app.fetch(new Request('http://localhost/api/posts'));
   const data1 = await response1.json();
   expect(data1.matched).toBe('wildcard');
   expect(data1.path).toBe('posts');
 
   // Test nested paths
-  const response2 = await server.fetch(
+  const response2 = await app.fetch(
     new Request('http://localhost/api/posts/123')
   );
   const data2 = await response2.json();

@@ -18,7 +18,7 @@ Complete CRUD API with in-memory storage:
 
 ```typescript
 // Import necessary BunServe utilities for REST API
-import { create_router, create_server, error_handler, HttpError, logger } from 'bunserve';
+import { bunserve, error_handler, logger } from 'bunserve';
 
 // Data store - in-memory Map for fast lookups
 const users = new Map<string, User>();
@@ -30,16 +30,16 @@ interface User {
   created_at: string;
 }
 
-const router = create_router();
+const app = bunserve();
 
 // Middleware - runs for all routes
 // Error handler catches and formats all errors
-router.use(error_handler());
+app.use(error_handler());
 // Logger logs all requests in dev format
-router.use(logger({ format: 'dev' }));
+app.use(logger({ format: 'dev' }));
 
 // List all users with count
-router.get('/api/users', () => {
+app.get('/api/users', () => {
   return {
     users: Array.from(users.values()),
     total: users.size
@@ -47,27 +47,34 @@ router.get('/api/users', () => {
 });
 
 // Get user by ID
-router.get('/api/users/:id', ({ params }) => {
+// The context parameter is destructured to { params }
+app.get('/api/users/:id', ({ params }) => {
   const user = users.get(params.id);
 
   if (!user) {
     // Throw 404 if user not found
-    throw HttpError.not_found('User not found');
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   return user;
 });
 
 // Create user with validation
-router.post('/api/users', async ({ body, set }) => {
+app.post('/api/users', async ({ body, set }) => {
   // Validation - check required fields
   if (!body.name || !body.email) {
-    throw HttpError.bad_request('Name and email are required');
+    const error: any = new Error('Name and email are required');
+    error.status = 400;
+    throw error;
   }
 
   // Validate email format with regex
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
-    throw HttpError.bad_request('Invalid email format');
+    const error: any = new Error('Invalid email format');
+    error.status = 400;
+    throw error;
   }
 
   // Create new user with generated ID
@@ -86,11 +93,13 @@ router.post('/api/users', async ({ body, set }) => {
 });
 
 // Update user - partial update
-router.put('/api/users/:id', async ({ params, body }) => {
+app.put('/api/users/:id', async ({ params, body }) => {
   const user = users.get(params.id);
 
   if (!user) {
-    throw HttpError.not_found('User not found');
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   // Update only provided fields
@@ -103,9 +112,11 @@ router.put('/api/users/:id', async ({ params, body }) => {
 });
 
 // Delete user
-router.delete('/api/users/:id', ({ params, set }) => {
+app.delete('/api/users/:id', ({ params, set }) => {
   if (!users.delete(params.id)) {
-    throw HttpError.not_found('User not found');
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   set.status = 204; // 204 No Content
@@ -113,7 +124,7 @@ router.delete('/api/users/:id', ({ params, set }) => {
 });
 
 // Search users by name or email
-router.get('/api/users/search', ({ query }) => {
+app.get('/api/users/search', ({ query }) => {
   const term = (query.q || '').toLowerCase();
 
   // Filter users by search term
@@ -130,8 +141,8 @@ router.get('/api/users/search', ({ query }) => {
 });
 
 // Create and start the server
-const server = create_server({ router, port: 3000 });
-server.listen();
+const app = bunserve({ port: 3000 });
+app.listen();
 ```
 
 ## Authentication System
@@ -139,7 +150,7 @@ server.listen();
 JWT-based authentication with protected routes:
 
 ```typescript
-import { create_router, create_server, Context, HttpError } from 'bunserve'
+import { bunserve, Context } from 'bunserve'
 import { sign, verify } from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -153,11 +164,14 @@ interface User {
 const users = new Map<string, User>()
 
 // Authentication middleware
+// The context parameter is destructured to { request }
 const authenticate = async ({ request }, next) => {
   const auth_header = request.headers.get('authorization')
 
   if (!auth_header?.startsWith('Bearer ')) {
-    throw HttpError.unauthorized('No token provided')
+    const error: any = new Error('No token provided');
+    error.status = 401;
+    throw error;
   }
 
   const token = auth_header.slice(7)
@@ -167,28 +181,36 @@ const authenticate = async ({ request }, next) => {
     const user = users.get(payload.user_id)
 
     if (!user) {
-      throw HttpError.unauthorized('Invalid token')
+      const error: any = new Error('Invalid token');
+      error.status = 401;
+      throw error;
     }
 
     Context.set({ user })
     await next()
   } catch (error) {
-    throw HttpError.unauthorized('Invalid or expired token')
+    const authError: any = new Error('Invalid or expired token');
+    authError.status = 401;
+    throw authError;
   }
 }
 
-const router = create_router()
+const app = bunserve()
 
 // Public routes
-router.post('/auth/register', async ({ body, set }) => {
+app.post('/auth/register', async ({ body, set }) => {
   if (!body.email || !body.password) {
-    throw HttpError.bad_request('Email and password required')
+    const error: any = new Error('Email and password required');
+    error.status = 400;
+    throw error;
   }
 
   // Check if user exists
   const existing = Array.from(users.values()).find(u => u.email === body.email)
   if (existing) {
-    throw HttpError.conflict('Email already registered')
+    const error: any = new Error('Email already registered');
+    error.status = 409;
+    throw error;
   }
 
   // Hash password (use bcrypt in production)
@@ -209,19 +231,25 @@ router.post('/auth/register', async ({ body, set }) => {
   }
 })
 
-router.post('/auth/login', async ({ body }) => {
+app.post('/auth/login', async ({ body }) => {
   if (!body.email || !body.password) {
-    throw HttpError.bad_request('Email and password required')
+    const error: any = new Error('Email and password required');
+    error.status = 400;
+    throw error;
   }
 
   const user = Array.from(users.values()).find(u => u.email === body.email)
   if (!user) {
-    throw HttpError.unauthorized('Invalid credentials')
+    const error: any = new Error('Invalid credentials');
+    error.status = 401;
+    throw error;
   }
 
   const valid = await Bun.password.verify(body.password, user.password_hash)
   if (!valid) {
-    throw HttpError.unauthorized('Invalid credentials')
+    const error: any = new Error('Invalid credentials');
+    error.status = 401;
+    throw error;
   }
 
   const token = sign(
@@ -237,7 +265,7 @@ router.post('/auth/login', async ({ body }) => {
 })
 
 // Protected routes
-router.get('/auth/me', [authenticate], () => {
+app.get('/auth/me', [authenticate], () => {
   const { user } = Context.get<{ user: User }>()
 
   return {
@@ -246,13 +274,13 @@ router.get('/auth/me', [authenticate], () => {
   }
 })
 
-router.post('/auth/logout', [authenticate], () => {
+app.post('/auth/logout', [authenticate], () => {
   // In production, you'd invalidate the token server-side
   return { message: 'Logged out successfully' }
 })
 
-const server = create_server({ router, port: 3000 })
-server.listen()
+const app = bunserve({ port: 3000 })
+app.listen()
 ```
 
 ## File Upload API
@@ -260,7 +288,7 @@ server.listen()
 Handle file uploads with validation:
 
 ```typescript
-import { create_router, create_server, HttpError } from 'bunserve'
+import { bunserve } from 'bunserve'
 import { mkdir, write } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -271,27 +299,35 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'
 // Ensure upload directory exists
 await mkdir(UPLOAD_DIR, { recursive: true })
 
-const router = create_router()
+const app = bunserve()
 
 // Upload single file
-router.post('/upload', async ({ body, set }) => {
+app.post('/upload', async ({ body, set }) => {
   if (!(body instanceof FormData)) {
-    throw HttpError.bad_request('Request must be multipart/form-data')
+    const error: any = new Error('Request must be multipart/form-data');
+    error.status = 400;
+    throw error;
   }
 
   const file = body.get('file') as File
   if (!file) {
-    throw HttpError.bad_request('No file provided')
+    const error: any = new Error('No file provided');
+    error.status = 400;
+    throw error;
   }
 
   // Validate file size
   if (file.size > MAX_FILE_SIZE) {
-    throw HttpError.bad_request('File too large (max 5MB)')
+    const error: any = new Error('File too large (max 5MB)');
+    error.status = 400;
+    throw error;
   }
 
   // Validate file type
   if (!ALLOWED_TYPES.includes(file.type)) {
-    throw HttpError.bad_request('Invalid file type')
+    const error: any = new Error('Invalid file type');
+    error.status = 400;
+    throw error;
   }
 
   // Save file
@@ -312,7 +348,7 @@ router.post('/upload', async ({ body, set }) => {
 })
 
 // Upload multiple files
-router.post('/upload/multiple', async ({ body }) => {
+app.post('/upload/multiple', async ({ body }) => {
   if (!(body instanceof FormData)) {
     throw HttpError.bad_request('Request must be multipart/form-data')
   }
@@ -353,13 +389,13 @@ router.post('/upload/multiple', async ({ body }) => {
 })
 
 // Serve uploaded files
-router.get('/uploads/:filename', ({ params }) => {
+app.get('/uploads/:filename', ({ params }) => {
   const filepath = join(UPLOAD_DIR, params.filename)
   return new Response(Bun.file(filepath))
 })
 
-const server = create_server({ router, port: 3000 })
-server.listen()
+const app = bunserve({ port: 3000 })
+app.listen()
 ```
 
 ## Middleware Stack
@@ -377,10 +413,10 @@ import {
   Context
 } from 'bunserve'
 
-const router = create_router()
+const app = bunserve()
 
 // 1. Error handling (first!)
-router.use(error_handler({
+app.use(error_handler({
   include_stack: process.env.NODE_ENV === 'development',
   log_error: (error, context) => {
     console.error({
@@ -394,7 +430,7 @@ router.use(error_handler({
 }))
 
 // 2. CORS
-router.use(cors({
+app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -402,13 +438,13 @@ router.use(cors({
 }))
 
 // 3. Request logging
-router.use(logger({
+app.use(logger({
   format: process.env.NODE_ENV === 'development' ? 'dev' : 'combined',
   skip: (path) => path === '/health' || path === '/metrics'
 }))
 
 // 4. Request ID
-router.use(async ({ set }, next) => {
+app.use(async ({ set }, next) => {
   const request_id = crypto.randomUUID()
   set.headers['X-Request-ID'] = request_id
   Context.set({ request_id })
@@ -418,7 +454,7 @@ router.use(async ({ set }, next) => {
 // 5. Rate limiting
 const rate_limits = new Map<string, { count: number; reset: number }>()
 
-router.use(async ({ request, set }, next) => {
+app.use(async ({ request, set }, next) => {
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
   const now = Date.now()
   const limit = rate_limits.get(ip)
@@ -437,7 +473,7 @@ router.use(async ({ request, set }, next) => {
 })
 
 // 6. Response time
-router.use(async ({ set }, next) => {
+app.use(async ({ set }, next) => {
   const start = performance.now()
   await next()
   const duration = performance.now() - start
@@ -445,10 +481,10 @@ router.use(async ({ set }, next) => {
 })
 
 // Routes
-router.get('/api/data', () => ({ data: 'Hello World' }))
+app.get('/api/data', () => ({ data: 'Hello World' }))
 
-const server = create_server({ router, port: 3000 })
-server.listen()
+const app = bunserve({ port: 3000 })
+app.listen()
 ```
 
 ## Health Checks
@@ -456,74 +492,77 @@ server.listen()
 Production-ready health check endpoint:
 
 ```typescript
-import { create_router, create_server, create_health_check } from 'bunserve'
+import { bunserve } from 'bunserve'
 import { Database } from 'bun:sqlite'
 
 const db = new Database('app.db')
 const redis = connectToRedis() // Your Redis client
 
-const router = create_router()
+const app = bunserve({ port: 3000 })
 
-// Basic health check
-router.get('/health', create_health_check())
+// Basic health check - simple status endpoint
+app.get('/health', () => {
+  return {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  }
+})
 
-// Health check with dependencies
-router.get('/health/full', create_health_check({
-  checks: {
-    database: async () => {
-      try {
-        db.query('SELECT 1').get()
-        return true
-      } catch {
-        return false
-      }
-    },
+// Comprehensive health check with dependency checks
+app.get('/health/full', async () => {
+  const checks = {
+    database: false,
+    redis: false,
+    memory: false
+  }
 
-    redis: async () => {
-      try {
-        await redis.ping()
-        return true
-      } catch {
-        return false
-      }
-    },
+  // Check database connection
+  try {
+    db.query('SELECT 1').get()
+    checks.database = true
+  } catch {
+    checks.database = false
+  }
 
-    memory: () => {
-      const usage = process.memoryUsage()
-      return usage.heapUsed < usage.heapTotal * 0.9
-    },
+  // Check Redis connection
+  try {
+    await redis.ping()
+    checks.redis = true
+  } catch {
+    checks.redis = false
+  }
 
-    disk_space: async () => {
-      // Check available disk space
-      const { available } = await checkDiskSpace('/')
-      return available > 1024 * 1024 * 1024 // 1GB
-    }
-  },
+  // Check memory usage
+  const usage = process.memoryUsage()
+  checks.memory = usage.heapUsed < usage.heapTotal * 0.9
 
-  include_system_info: true
-}))
+  const all_healthy = Object.values(checks).every(check => check === true)
 
-// Liveness probe (Kubernetes)
-router.get('/health/live', () => {
+  return {
+    status: all_healthy ? 'healthy' : 'degraded',
+    checks,
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  }
+})
+
+// Liveness probe (Kubernetes) - always returns OK if server is running
+app.get('/health/live', () => {
   return { status: 'alive' }
 })
 
-// Readiness probe (Kubernetes)
-router.get('/health/ready', create_health_check({
-  checks: {
-    database: async () => {
-      try {
-        db.query('SELECT 1').get()
-        return true
-      } catch {
-        return false
-      }
-    }
+// Readiness probe (Kubernetes) - checks if app can handle requests
+app.get('/health/ready', async () => {
+  try {
+    db.query('SELECT 1').get()
+    return { status: 'ready' }
+  } catch {
+    return { status: 'not ready', error: 'Database unavailable' }
   }
-}))
+})
 
-const server = create_server({ router, port: 3000 })
-server.listen()
+app.listen()
 ```
 
 ## WebSocket Integration
@@ -531,13 +570,13 @@ server.listen()
 Combine HTTP routes with WebSocket:
 
 ```typescript
-import { create_router, create_server } from 'bunserve'
+import { bunserve } from 'bunserve'
 
-const router = create_router()
+const app = bunserve()
 const connections = new Set<any>()
 
 // HTTP routes
-router.get('/', ({ set }) => {
+app.get('/', ({ set }) => {
   set.content = 'html'
   return `
     <!DOCTYPE html>
@@ -565,19 +604,19 @@ router.get('/', ({ set }) => {
   `
 })
 
-router.get('/api/stats', () => {
+app.get('/api/stats', () => {
   return {
     connections: connections.size,
     uptime: process.uptime()
   }
 })
 
-const server = create_server({ router, port: 3000 })
+const app = bunserve({ port: 3000 })
 
 // Add WebSocket support
 const bun_server = Bun.serve({
   port: 3000,
-  routes: router.build_routes(),
+  routes: app.build_routes(),
 
   websocket: {
     open(ws) {
@@ -607,7 +646,7 @@ const bun_server = Bun.serve({
     }
 
     // Handle HTTP routes
-    return router.handle_request(req)
+    return app.handle_request(req)
   }
 })
 ```
@@ -617,7 +656,7 @@ const bun_server = Bun.serve({
 Using Bun's built-in SQLite:
 
 ```typescript
-import { create_router, create_server, HttpError } from 'bunserve'
+import { bunserve, HttpError } from 'bunserve'
 import { Database } from 'bun:sqlite'
 
 const db = new Database('app.db')
@@ -632,10 +671,10 @@ db.exec(`
   )
 `)
 
-const router = create_router()
+const app = bunserve()
 
 // List users with pagination
-router.get('/api/users', ({ query }) => {
+app.get('/api/users', ({ query }) => {
   const page = parseInt(query.page || '1')
   const limit = parseInt(query.limit || '10')
   const offset = (page - 1) * limit
@@ -660,7 +699,7 @@ router.get('/api/users', ({ query }) => {
 })
 
 // Get user
-router.get('/api/users/:id', ({ params }) => {
+app.get('/api/users/:id', ({ params }) => {
   const user = db.query('SELECT * FROM users WHERE id = ?').get(params.id)
 
   if (!user) {
@@ -671,7 +710,7 @@ router.get('/api/users/:id', ({ params }) => {
 })
 
 // Create user
-router.post('/api/users', async ({ body, set }) => {
+app.post('/api/users', async ({ body, set }) => {
   const id = crypto.randomUUID()
 
   try {
@@ -691,8 +730,8 @@ router.post('/api/users', async ({ body, set }) => {
   }
 })
 
-const server = create_server({ router, port: 3000 })
-server.listen()
+const app = bunserve({ port: 3000 })
+app.listen()
 ```
 
 ## Next Steps

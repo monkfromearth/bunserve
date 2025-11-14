@@ -1,0 +1,29 @@
+import { bunserve, cors, logger, error_handler } from '../../src/index';
+
+const app = bunserve();
+
+// Add realistic middleware stack
+app.use(error_handler());
+app.use(cors({ preset: 'development' }));
+app.use(logger({ preset: 'minimal' }));
+
+// Simple routes for benchmarking
+app.get('/', () => ({ message: 'Hello World' }));
+
+app.get('/users/:id', ({ params }) => ({
+  id: params.id,
+  name: 'John Doe',
+  email: 'john@example.com'
+}));
+
+app.post('/users', async ({ request }) => {
+  try {
+    const body = await request.json();
+    return { success: true, data: body };
+  } catch (error) {
+    return { success: true, data: {} };
+  }
+});
+
+app.listen(3000);
+console.log('BunServe (with middleware) server running on http://localhost:3000');

@@ -13,68 +13,20 @@ export interface ErrorHandlerOptions {
 }
 
 /**
- * HTTP error class for structured error responses.
- */
-export class HttpError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public details?: any
-  ) {
-    super(message);
-    this.name = 'HttpError';
-  }
-
-  /** Create a 400 Bad Request error */
-  static bad_request(message: string, details?: any): HttpError {
-    return new HttpError(400, message, details);
-  }
-
-  /** Create a 401 Unauthorized error */
-  static unauthorized(message: string = 'Unauthorized'): HttpError {
-    return new HttpError(401, message);
-  }
-
-  /** Create a 403 Forbidden error */
-  static forbidden(message: string = 'Forbidden'): HttpError {
-    return new HttpError(403, message);
-  }
-
-  /** Create a 404 Not Found error */
-  static not_found(message: string = 'Not Found'): HttpError {
-    return new HttpError(404, message);
-  }
-
-  /** Create a 409 Conflict error */
-  static conflict(message: string, details?: any): HttpError {
-    return new HttpError(409, message, details);
-  }
-
-  /** Create a 500 Internal Server Error */
-  static internal(message: string = 'Internal Server Error'): HttpError {
-    return new HttpError(500, message);
-  }
-}
-
-/**
  * Default error formatter that creates a JSON error response.
+ * Looks for error.status property to determine HTTP status code.
  */
 function default_error_formatter(
   error: Error,
   _context: RouteContext<string>,
   include_stack: boolean = false
 ): any {
-  if (error instanceof HttpError) {
-    return {
-      error: error.message,
-      status: error.status,
-      ...(error.details && { details: error.details }),
-      ...(include_stack && { stack: error.stack })
-    };
-  }
+  // Check if error has a status property
+  const status = (error as any).status || 500;
 
   return {
     error: error.message || 'Internal Server Error',
+    status,
     ...(include_stack && { stack: error.stack })
   };
 }
@@ -82,23 +34,38 @@ function default_error_formatter(
 /**
  * Error handling middleware that catches errors from route handlers.
  *
+ * Handles plain Error objects with optional `status` property.
+ * If error.status exists, it's used as the HTTP status code, otherwise defaults to 500.
+ *
  * @example
  * ```typescript
- * import { create_router } from 'bunserve'
- * import { error_handler, HttpError } from 'bunserve/middleware/error-handler'
+ * import { bunserve, error_handler } from 'bunserve';
  *
- * const router = create_router()
+ * const app = bunserve();
  *
  * // Add error handler as first middleware
- * router.use(error_handler())
+ * app.use(error_handler());
  *
- * // Throw errors in routes
- * router.get('/user/:id', ({ params }) => {
+ * // Throw errors in routes with custom status
+ * app.get('/user/:id', ({ params }) => {
  *   if (!users.has(params.id)) {
- *     throw HttpError.not_found('User not found')
+ *     const error = new Error('User not found');
+ *     error.status = 404;
+ *     throw error;
  *   }
- *   return users.get(params.id)
- * })
+ *   return users.get(params.id);
+ * });
+ *
+ * // Or define your own error utilities
+ * class AppError extends Error {
+ *   constructor(message: string, public status: number) {
+ *     super(message);
+ *   }
+ * }
+ *
+ * app.get('/admin', () => {
+ *   throw new AppError('Forbidden', 403);
+ * });
  * ```
  */
 export function error_handler(options: ErrorHandlerOptions = {}): Middleware {
@@ -117,12 +84,8 @@ export function error_handler(options: ErrorHandlerOptions = {}): Middleware {
       // Log the error
       log_error(err, context);
 
-      // Set status code
-      if (err instanceof HttpError) {
-        context.set.status = err.status;
-      } else {
-        context.set.status = 500;
-      }
+      // Set status code from error.status property or default to 500
+      context.set.status = (err as any).status || 500;
 
       // Format and return error response
       const error_response = format_error(err, context, include_stack);
@@ -134,8 +97,3 @@ export function error_handler(options: ErrorHandlerOptions = {}): Middleware {
     }
   };
 }
-
-/**
- * Export error types for convenience.
- */
-export { HttpError as Error };

@@ -12,7 +12,7 @@ BunServe uses Bun's native cookie management system, which provides efficient co
 
 ```typescript
 // Read cookies from the request
-router.get('/profile', ({ cookies }) => {
+app.get('/profile', ({ cookies }) => {
   // Get cookie values using get() method
   const session_id = cookies.get('session_id');
   const theme = cookies.get('theme') || 'light'; // Default to 'light' if not set
@@ -28,7 +28,7 @@ router.get('/profile', ({ cookies }) => {
 
 ```typescript
 // Set cookies in the response
-router.post('/login', ({ body, cookies }) => {
+app.post('/login', ({ body, cookies }) => {
   // Authenticate user...
 
   // Set a simple cookie without options
@@ -51,7 +51,7 @@ router.post('/login', ({ body, cookies }) => {
 
 ```typescript
 // Delete a cookie
-router.post('/logout', ({ cookies }) => {
+app.post('/logout', ({ cookies }) => {
   // Delete a cookie by name and path
   cookies.delete('session_id', {
     path: '/' // Must match the path used when setting the cookie
@@ -187,7 +187,7 @@ const sessions = new Map<string, {
 }>()
 
 // Login
-router.post('/auth/login', async ({ body, cookies }) => {
+app.post('/auth/login', async ({ body, cookies }) => {
   // Authenticate user
   const user = await authenticate(body.email, body.password)
 
@@ -244,13 +244,13 @@ const require_session = async ({ cookies }, next) => {
 }
 
 // Protected routes
-router.get('/api/profile', [require_session], () => {
+app.get('/api/profile', [require_session], () => {
   const { user_id } = Context.get<{ user_id: string }>()
   return { user: getUserById(user_id) }
 })
 
 // Logout
-router.post('/auth/logout', ({ cookies }) => {
+app.post('/auth/logout', ({ cookies }) => {
   const session_id = cookies.get('session_id')
 
   if (session_id) {
@@ -270,7 +270,7 @@ import { sign, verify } from 'jsonwebtoken'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret'
 
 // Login with JWT
-router.post('/auth/login', async ({ body, cookies }) => {
+app.post('/auth/login', async ({ body, cookies }) => {
   const user = await authenticate(body.email, body.password)
 
   if (!user) {
@@ -312,7 +312,7 @@ const require_jwt = async ({ cookies }, next) => {
   }
 }
 
-router.get('/api/profile', [require_jwt], () => {
+app.get('/api/profile', [require_jwt], () => {
   const { user_id } = Context.get<{ user_id: string }>()
   return { user: getUserById(user_id) }
 })
@@ -352,7 +352,7 @@ cookies.set('session_id', token, {
 
 5. **Regenerate session IDs after login**:
 ```typescript
-router.post('/auth/login', async ({ body, cookies }) => {
+app.post('/auth/login', async ({ body, cookies }) => {
   // Delete old session if exists
   const old_session = cookies.get('session_id')
   if (old_session) {
@@ -376,7 +376,7 @@ router.post('/auth/login', async ({ body, cookies }) => {
 // Generate CSRF token
 const csrf_tokens = new Map<string, string>()
 
-router.get('/auth/csrf', ({ cookies }) => {
+app.get('/auth/csrf', ({ cookies }) => {
   const csrf_token = crypto.randomUUID()
   const session_id = cookies.get('session_id')
 
@@ -407,7 +407,7 @@ const validate_csrf = async ({ cookies, body, request }, next) => {
   await next()
 }
 
-router.use(validate_csrf)
+app.use(validate_csrf)
 ```
 
 ## Cookie Preferences
@@ -416,7 +416,7 @@ Store user preferences:
 
 ```typescript
 // Save preferences
-router.post('/preferences', ({ body, cookies }) => {
+app.post('/preferences', ({ body, cookies }) => {
   const preferences = {
     theme: body.theme || 'light',
     language: body.language || 'en',
@@ -433,7 +433,7 @@ router.post('/preferences', ({ body, cookies }) => {
 })
 
 // Read preferences
-router.get('/preferences', ({ cookies }) => {
+app.get('/preferences', ({ cookies }) => {
   const preferences_str = cookies.get('preferences')
 
   if (!preferences_str) {
@@ -453,7 +453,7 @@ router.get('/preferences', ({ cookies }) => {
 Implement "Remember Me" functionality:
 
 ```typescript
-router.post('/auth/login', async ({ body, cookies }) => {
+app.post('/auth/login', async ({ body, cookies }) => {
   const user = await authenticate(body.email, body.password)
 
   if (!user) {
@@ -484,7 +484,7 @@ router.post('/auth/login', async ({ body, cookies }) => {
 Handle cookie consent for GDPR compliance:
 
 ```typescript
-router.post('/cookies/consent', ({ body, cookies }) => {
+app.post('/cookies/consent', ({ body, cookies }) => {
   const consent = {
     essential: true, // Always true
     analytics: body.analytics || false,
@@ -528,7 +528,7 @@ import { test, expect } from 'bun:test'
 test('sets session cookie on login', async () => {
   const router = create_router()
 
-  router.post('/login', ({ cookies }) => {
+  app.post('/login', ({ cookies }) => {
     cookies.set('session_id', 'test-session', {
       httpOnly: true
     })

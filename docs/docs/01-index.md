@@ -25,32 +25,30 @@ bun add bunserve
 ### Basic Example
 
 ```typescript
-// Import the router and server creation functions from BunServe
-import { create_router, create_server } from 'bunserve';
+// Import the main application creator from BunServe
+import { bunserve } from 'bunserve';
 
-// Create a new router instance to register routes
-const router = create_router();
+// Create the main application instance
+const app = bunserve();
 
 // Simple routes
 // Define a GET route that returns a plain text greeting
-router.get('/', () => 'Hello World!');
+app.get('/', () => 'Hello World!');
 
 // Route parameters
 // Define a GET route with a dynamic :id parameter to fetch a specific user
-router.get('/users/:id', ({ params }) => {
+app.get('/users/:id', ({ params }) => {
   return { user_id: params.id };
 });
 
 // JSON responses
 // Define a POST route to create a new user, automatically parsing the JSON body
-router.post('/api/users', async ({ body }) => {
+app.post('/api/users', async ({ body }) => {
   return { created: true, user: body };
 });
 
-// Create the HTTP server with the configured router
-const server = create_server({ router });
 // Start the server listening on port 3000
-server.listen(3000);
+app.listen(3000);
 ```
 
 ### Run the Server
@@ -68,27 +66,28 @@ Visit `http://localhost:3000` to see your server in action!
 The router is the heart of BunServe. It registers routes and builds them into Bun's native routing format for optimal performance.
 
 ```typescript
-import { create_router } from 'bunserve';
+import { bunserve } from 'bunserve';
 
-const router = create_router();
+// Create the main application instance
+const app = bunserve();
 
 // HTTP methods
 // Register a GET route for retrieving resources
-router.get('/path', handler);
+app.get('/path', handler);
 // Register a POST route for creating resources
-router.post('/path', handler);
+app.post('/path', handler);
 // Register a PUT route for updating/replacing resources
-router.put('/path', handler);
+app.put('/path', handler);
 // Register a DELETE route for removing resources
-router.delete('/path', handler);
+app.delete('/path', handler);
 // Register a PATCH route for partially updating resources
-router.patch('/path', handler);
+app.patch('/path', handler);
 // Register an OPTIONS route for CORS preflight requests
-router.options('/path', handler);
+app.options('/path', handler);
 // Register a HEAD route for getting headers without body
-router.head('/path', handler);
+app.head('/path', handler);
 // Register a route that matches all HTTP methods
-router.all('/path', handler);
+app.all('/path', handler);
 ```
 
 ### Route Handlers
@@ -96,7 +95,7 @@ router.all('/path', handler);
 Route handlers receive a context object with request information and helper methods:
 
 ```typescript
-router.get('/example', ({ request, params, query, body, cookies, set }) => {
+app.get('/example', ({ request, params, query, body, cookies, set }) => {
   // request: The full BunRequest object with all HTTP details
   // params: URL parameters (/users/:id -> params.id)
   // query: Query string parameters (?foo=bar -> query.foo)
@@ -114,7 +113,7 @@ BunServe automatically infers route parameter types:
 
 ```typescript
 // TypeScript automatically infers the types of route parameters
-router.get('/users/:userId/posts/:postId', ({ params }) => {
+app.get('/users/:userId/posts/:postId', ({ params }) => {
   // TypeScript knows: params = { userId: string; postId: string }
   // Access the userId and postId parameters with full type safety
   return {

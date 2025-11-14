@@ -17,20 +17,29 @@ Middleware functions run before (and after) your route handlers, allowing you to
 
 ### Creating Middleware
 
-```typescript
-import { create_router } from 'bunserve';
+Middleware functions receive a `context` object (which contains `request`, `params`, `set`, etc.) and a `next` function. You can destructure the context to access only what you need:
 
-const router = create_router();
+```typescript
+import { bunserve } from 'bunserve';
+
+const app = bunserve();
 
 // Simple logging middleware that runs before route handlers
-router.use(async ({ request }, next) => {
+// The first parameter is the context object - here we destructure `request` from it
+app.use(async ({ request }, next) => {
   console.log(`${request.method} ${request.url}`);
   // Continue to next middleware or handler
   await next();
 });
 
+// You can also use the full context object without destructuring
+app.use(async (context, next) => {
+  console.log(`${context.request.method} ${context.request.url}`);
+  await next();
+});
+
 // Route handler - runs after middleware
-router.get('/', () => 'Hello World');
+app.get('/', () => 'Hello World');
 ```
 
 ### Middleware Order
@@ -39,21 +48,21 @@ Middleware executes in the order you register it:
 
 ```typescript
 // First middleware - executes first
-router.use(async ({}, next) => {
+app.use(async ({}, next) => {
   console.log('1: Before');
   await next(); // Call next middleware
   console.log('1: After');
 });
 
 // Second middleware - executes second
-router.use(async ({}, next) => {
+app.use(async ({}, next) => {
   console.log('2: Before');
   await next(); // Call route handler
   console.log('2: After');
 });
 
 // Route handler - executes last
-router.get('/', () => {
+app.get('/', () => {
   console.log('Handler');
   return 'Done';
 });
@@ -72,23 +81,26 @@ BunServe includes several production-ready middleware:
 
 ### Error Handler
 
-Catches and formats errors:
+Catches and formats errors thrown from route handlers:
 
 ```typescript
-import { error_handler, HttpError } from 'bunserve';
+import { bunserve, error_handler } from 'bunserve';
 
-const router = create_router();
+const app = bunserve();
 
 // Add error handler FIRST to catch all errors thrown in routes
-router.use(error_handler());
+app.use(error_handler());
 
-// Route that throws structured errors
-router.get('/user/:id', ({ params }) => {
+// Route that throws errors with status property
+// The context parameter is destructured to { params }
+app.get('/user/:id', ({ params }) => {
   const user = users.find(u => u.id === params.id);
 
   if (!user) {
-    // Throw a structured 404 error
-    throw HttpError.not_found('User not found');
+    // Throw a plain Error with a status property
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   return user;
@@ -105,7 +117,7 @@ router.get('/user/:id', ({ params }) => {
 
 ```typescript
 // Configure error handler with custom options
-router.use(error_handler({
+app.use(error_handler({
   // Include stack traces (default: true in dev, false in production)
   include_stack: true,
 
@@ -124,26 +136,43 @@ router.use(error_handler({
 }));
 ```
 
-#### HttpError Factory Methods
+#### Creating Custom Error Classes
+
+You can create your own error classes with status codes:
 
 ```typescript
-// 400 Bad Request - client sent invalid data
-throw HttpError.bad_request('Invalid input', { field: 'email' });
+// Define a custom error class
+class AppError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
 
-// 401 Unauthorized - authentication required
-throw HttpError.unauthorized('Please login');
+// Use in routes
+app.get('/admin', () => {
+  throw new AppError('Forbidden', 403);
+});
 
-// 403 Forbidden - authenticated but not authorized
-throw HttpError.forbidden('Access denied');
+// Or create factory functions for common errors
+const NotFoundError = (message: string) => {
+  const error: any = new Error(message);
+  error.status = 404;
+  return error;
+};
 
-// 404 Not Found - resource doesn't exist
-throw HttpError.not_found('Resource not found');
+const UnauthorizedError = (message: string) => {
+  const error: any = new Error(message);
+  error.status = 401;
+  return error;
+};
 
-// 409 Conflict - resource conflict (e.g., duplicate)
-throw HttpError.conflict('User already exists');
-
-// 500 Internal Server Error - server-side error
-throw HttpError.internal('Something went wrong');
+// Use the factories
+app.get('/user/:id', ({ params }) => {
+  if (!user) {
+    throw NotFoundError('User not found');
+  }
+  return user;
+});
 ```
 
 ### CORS Middleware
@@ -151,13 +180,15 @@ throw HttpError.internal('Something went wrong');
 Enable Cross-Origin Resource Sharing:
 
 ```typescript
-import { cors } from 'bunserve';
+import { bunserve, cors } from 'bunserve';
+
+const app = bunserve();
 
 // Allow all origins (use cautiously in production)
-router.use(cors());
+app.use(cors());
 
 // Custom configuration for specific origins
-router.use(cors({
+app.use(cors({
   origin: ['https://example.com', 'https://app.example.com'],  // Allow specific origins
   methods: ['GET', 'POST', 'PUT', 'DELETE'],                    // Allow specific HTTP methods
   allowed_headers: ['Content-Type', 'Authorization'],            // Allow specific headers
@@ -166,7 +197,7 @@ router.use(cors({
 }));
 
 // Dynamic origin validation with custom function
-router.use(cors({
+app.use(cors({
   origin: (origin) => {
     // Allow all .example.com subdomains
     return origin.endsWith('.example.com');
@@ -176,20 +207,28 @@ router.use(cors({
 
 #### CORS Presets
 
+Use the `preset` option for common CORS configurations:
+
 ```typescript
-import { cors_presets } from 'bunserve'
+import { cors } from 'bunserve';
 
-// Development (allows localhost)
-router.use(cors_presets.development())
+// Development preset (allows localhost)
+app.use(cors({ preset: 'development' }));
 
-// Production (requires explicit origins)
-router.use(cors_presets.production([
-  'https://example.com',
-  'https://app.example.com'
-]))
+// Production preset (requires explicit origins)
+app.use(cors({
+  preset: 'production',
+  allowed_origins: ['https://example.com', 'https://app.example.com']
+}));
 
-// Allow all (least secure)
-router.use(cors_presets.allow_all())
+// Allow all preset (least secure)
+app.use(cors({ preset: 'allow_all' }));
+
+// Preset with custom overrides
+app.use(cors({
+  preset: 'development',
+  max_age: 3600  // Override the preset's max_age
+}));
 ```
 
 ### Logger Middleware
@@ -197,25 +236,27 @@ router.use(cors_presets.allow_all())
 Log HTTP requests:
 
 ```typescript
-import { logger } from 'bunserve';
+import { bunserve, logger } from 'bunserve';
+
+const app = bunserve();
 
 // Development logging (with colors and timing)
-router.use(logger({ format: 'dev' }));
+app.use(logger({ format: 'dev' }));
 // Output: [abc123] GET /api/users 200 15ms
 
 // Production logging (with timestamps)
-router.use(logger({ format: 'combined' }));
+app.use(logger({ format: 'combined' }));
 // Output: 2024-01-01T12:00:00.000Z [abc123] GET /api/users 200 15ms
 
 // Minimal logging (just method and path)
-router.use(logger({ format: 'tiny' }));
+app.use(logger({ format: 'tiny' }));
 // Output: GET /api/users
 ```
 
 #### Logger Options
 
 ```typescript
-router.use(logger({
+app.use(logger({
   format: 'dev', // 'dev', 'combined', 'common', 'short', 'tiny'
 
   // Custom log function
@@ -233,17 +274,25 @@ router.use(logger({
 
 #### Logger Presets
 
+Use the `preset` option for common logging configurations:
+
 ```typescript
-import { logger_presets } from 'bunserve'
+import { logger } from 'bunserve';
 
-// Development
-router.use(logger_presets.development())
+// Development preset (colored output with request IDs)
+app.use(logger({ preset: 'development' }));
 
-// Production
-router.use(logger_presets.production())
+// Production preset (timestamped combined format)
+app.use(logger({ preset: 'production' }));
 
-// Minimal
-router.use(logger_presets.minimal())
+// Minimal preset (just method and path)
+app.use(logger({ preset: 'minimal' }));
+
+// Preset with custom overrides
+app.use(logger({
+  preset: 'development',
+  skip: (path) => path === '/health'  // Override the preset's skip function
+}));
 ```
 
 ## Route-Specific Middleware
@@ -252,6 +301,7 @@ Apply middleware to specific routes:
 
 ```typescript
 // Authentication middleware that checks for auth token
+// Note: The first parameter is the context object - we destructure request and set from it
 const requireAuth = async ({ request, set }, next) => {
   const token = request.headers.get('authorization');
 
@@ -266,9 +316,9 @@ const requireAuth = async ({ request, set }, next) => {
 
 // Apply to specific routes
 // Public route - no middleware required
-router.get('/public', () => 'Public data');
+app.get('/public', () => 'Public data');
 // Private route - requires authentication
-router.get('/private', [requireAuth], () => 'Private data');
+app.get('/private', [requireAuth], () => 'Private data');
 
 // Multiple middleware - executes in array order
 const requireAdmin = async ({ request, set }, next) => {
@@ -277,7 +327,7 @@ const requireAdmin = async ({ request, set }, next) => {
 };
 
 // Admin route - requires both auth and admin middleware
-router.get('/admin', [requireAuth, requireAdmin], () => {
+app.get('/admin', [requireAuth, requireAdmin], () => {
   return 'Admin data';
 });
 ```
@@ -287,9 +337,12 @@ router.get('/admin', [requireAuth, requireAdmin], () => {
 ### Authentication Middleware
 
 ```typescript
-import { Context } from 'bunserve';
+import { bunserve, Context } from 'bunserve';
+
+const app = bunserve();
 
 // Authentication middleware with JWT verification
+// The context parameter is destructured to { request, set }
 const authenticate = async ({ request, set }, next) => {
   // Extract Bearer token from Authorization header
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -303,7 +356,7 @@ const authenticate = async ({ request, set }, next) => {
     // Verify JWT token (example)
     const user = verifyJWT(token);
 
-    // Store user in context for use in route handlers
+    // Store user in request-scoped Context for use in route handlers
     Context.set({ user });
 
     await next();
@@ -314,8 +367,8 @@ const authenticate = async ({ request, set }, next) => {
 };
 
 // Use in routes - access user from context
-router.get('/profile', [authenticate], () => {
-  // Retrieve user from context with type safety
+app.get('/profile', [authenticate], () => {
+  // Retrieve user from Context with type safety
   const { user } = Context.get<{ user: User }>();
   return { user };
 });
@@ -358,7 +411,7 @@ const rate_limit = (max_requests: number, window_ms: number) => {
 };
 
 // Apply rate limit: 100 requests per 15 minutes
-router.use(rate_limit(100, 15 * 60 * 1000));
+app.use(rate_limit(100, 15 * 60 * 1000));
 ```
 
 ### Caching Middleware
@@ -398,7 +451,7 @@ const request_id_middleware = async ({ set }, next) => {
   await next()
 }
 
-router.use(request_id_middleware)
+app.use(request_id_middleware)
 ```
 
 ### Performance Monitoring
@@ -413,7 +466,7 @@ const perf_monitor = async ({ request }, next) => {
   console.log(`${request.method} ${request.url} took ${duration.toFixed(2)}ms`)
 }
 
-router.use(perf_monitor)
+app.use(perf_monitor)
 ```
 
 ### Request Validation
@@ -432,7 +485,7 @@ const validate_json = async ({ request, set }, next) => {
   await next()
 }
 
-router.use(validate_json)
+app.use(validate_json)
 ```
 
 ## Middleware Patterns
@@ -451,7 +504,7 @@ const conditional_middleware = (condition: boolean, middleware: Middleware) => {
 }
 
 // Only log in development
-router.use(conditional_middleware(
+app.use(conditional_middleware(
   process.env.NODE_ENV === 'development',
   logger({ format: 'dev' })
 ))
@@ -483,7 +536,7 @@ const auth_stack = compose_middleware(
   requireAdmin
 )
 
-router.get('/admin', [auth_stack], () => 'Admin')
+app.get('/admin', [auth_stack], () => 'Admin')
 ```
 
 ### Async Middleware
@@ -502,7 +555,7 @@ const db_middleware = async ({ set }, next) => {
   }
 }
 
-router.use(db_middleware)
+app.use(db_middleware)
 ```
 
 ## Complete Example
@@ -511,58 +564,57 @@ Here's a production-ready middleware stack:
 
 ```typescript
 import {
-  create_router,
-  create_server,
+  bunserve,
   error_handler,
   cors,
-  logger,
-  HttpError
+  logger
 } from 'bunserve'
 
-const router = create_router()
+const app = bunserve()
 
 // 1. Error handling (should be first)
-router.use(error_handler({
+app.use(error_handler({
   include_stack: process.env.NODE_ENV === 'development'
 }))
 
-// 2. CORS
-router.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['*'],
-  credentials: true
+// 2. CORS - using preset
+app.use(cors({
+  preset: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+  allowed_origins: process.env.ALLOWED_ORIGINS?.split(',')
 }))
 
-// 3. Logging
-router.use(logger({
-  format: process.env.NODE_ENV === 'development' ? 'dev' : 'combined',
+// 3. Logging - using preset
+app.use(logger({
+  preset: process.env.NODE_ENV === 'development' ? 'development' : 'production',
   skip: (path) => path === '/health'
 }))
 
 // 4. Request ID
-router.use(async ({ set }, next) => {
+app.use(async ({ set }, next) => {
   set.headers['X-Request-ID'] = crypto.randomUUID()
   await next()
 })
 
 // 5. Rate limiting
-router.use(rate_limit(100, 15 * 60 * 1000))
+app.use(rate_limit(100, 15 * 60 * 1000))
 
 // 6. Authentication (route-specific)
 const authenticate = async ({ request, set }, next) => {
   const token = request.headers.get('authorization')
   if (!token) {
-    throw HttpError.unauthorized()
+    const error: any = new Error('Unauthorized');
+    error.status = 401;
+    throw error;
   }
   await next()
 }
 
 // Routes
-router.get('/health', () => ({ status: 'ok' }))
-router.get('/public', () => 'Public data')
-router.get('/private', [authenticate], () => 'Private data')
+app.get('/health', () => ({ status: 'ok' }))
+app.get('/public', () => 'Public data')
+app.get('/private', [authenticate], () => 'Private data')
 
-const server = create_server({ router, port: 3000 })
-server.listen()
+app.listen(3000)
 ```
 
 ## Best Practices
@@ -571,28 +623,28 @@ server.listen()
 
 ```typescript
 // Good: Error handler first
-router.use(error_handler())
-router.use(cors())
-router.use(logger())
+app.use(error_handler())
+app.use(cors())
+app.use(logger())
 
 // Bad: Error handler last won't catch errors from other middleware
-router.use(cors())
-router.use(logger())
-router.use(error_handler())
+app.use(cors())
+app.use(logger())
+app.use(error_handler())
 ```
 
 ### 2. Always Call next()
 
 ```typescript
 // Good
-router.use(async ({}, next) => {
+app.use(async ({}, next) => {
   console.log('Before')
   await next()
   console.log('After')
 })
 
 // Bad: Doesn't call next(), handler won't run
-router.use(async ({}, next) => {
+app.use(async ({}, next) => {
   console.log('Before')
   // Missing: await next()
 })
@@ -602,7 +654,7 @@ router.use(async ({}, next) => {
 
 ```typescript
 // Good
-router.use(async ({ request, set }, next) => {
+app.use(async ({ request, set }, next) => {
   if (!request.headers.get('api-key')) {
     set.status = 401
     return { error: 'API key required' }
@@ -611,7 +663,7 @@ router.use(async ({ request, set }, next) => {
 })
 
 // Bad: Calls next() even after error
-router.use(async ({ request, set }, next) => {
+app.use(async ({ request, set }, next) => {
   if (!request.headers.get('api-key')) {
     set.status = 401
     // Should return here!
@@ -624,19 +676,19 @@ router.use(async ({ request, set }, next) => {
 
 ```typescript
 // Good: Share data via Context
-router.use(async ({}, next) => {
+app.use(async ({}, next) => {
   const user = await authenticate()
   Context.set({ user })
   await next()
 })
 
-router.get('/profile', () => {
+app.get('/profile', () => {
   const { user } = Context.get<{ user: User }>()
   return { user }
 })
 
 // Bad: Can't access data from middleware
-router.use(async ({}, next) => {
+app.use(async ({}, next) => {
   const user = await authenticate()
   // How do we pass this to the handler?
   await next()

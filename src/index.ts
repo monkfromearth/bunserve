@@ -8,31 +8,29 @@
 
 // Re-export Context for convenience
 export { Context } from '@theinternetfolks/context';
-// Health check exports
-export {
-  create_health_check,
-  type HealthCheck,
-  type HealthCheckResult,
-  simple_health_check
-} from './health';
 // Middleware exports
 export * from './middleware/index';
 // Core exports
-export { create_router } from './router';
-export { create_server } from './server';
+export { router } from './router';
+export { bunserve } from './server';
+export type { ServerOptions } from './server';
 export type * from './types';
 
 /**
  * @example
  * ```typescript
- * import { create_router, create_server } from 'bunserve'
+ * import { bunserve, router } from 'bunserve';
  *
- * const router = create_router()
+ * const app = bunserve();
  *
- * router.get('/hello', () => 'Hello World!')
- * router.get('/users/:id', ({ params }) => ({ id: params.id }))
+ * app.get('/hello', () => 'Hello World!');
+ * app.get('/users/:id', ({ params }) => ({ id: params.id }));
  *
- * const server = create_server({ router })
- * server.listen(3000)
+ * // Create and mount sub-router
+ * const api = router();
+ * api.get('/posts', () => ({ posts: [] }));
+ * app.use('/api', api);
+ *
+ * app.listen(3000);
  * ```
  */

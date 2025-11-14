@@ -29,33 +29,27 @@ bun add bunserve
 Create a file called `server.ts`:
 
 ```typescript
-// Import core BunServe functions for routing and server creation
-import { create_router, create_server } from 'bunserve';
+// Import the main BunServe application creator
+import { bunserve } from 'bunserve';
 
-// Create a router instance to register routes
-const router = create_router();
+// Create the main application instance with port configuration
+const app = bunserve({ port: 3000 });
 
 // Add a simple route that returns a text response
-router.get('/', () => {
+app.get('/', () => {
   return 'Welcome to BunServe!';
 });
 
 // Add a JSON route that returns the server status
-router.get('/api/status', () => {
+app.get('/api/status', () => {
   return {
     status: 'online',
     timestamp: new Date().toISOString()
   };
 });
 
-// Create and start the server on port 3000
-const server = create_server({
-  router,
-  port: 3000
-});
-
 // Start listening for incoming requests
-server.listen();
+app.listen();
 ```
 
 Run your server:
@@ -74,14 +68,14 @@ Extract values from the URL:
 
 ```typescript
 // Route with a single dynamic parameter (:id)
-router.get('/users/:id', ({ params }) => {
+app.get('/users/:id', ({ params }) => {
   return {
     message: `User ID: ${params.id}`
   };
 });
 
 // Multiple parameters - extract both postId and commentId from the URL
-router.get('/posts/:postId/comments/:commentId', ({ params }) => {
+app.get('/posts/:postId/comments/:commentId', ({ params }) => {
   return {
     post: params.postId,
     comment: params.commentId
@@ -95,7 +89,7 @@ Access query string values:
 
 ```typescript
 // Access query string parameters from the URL
-router.get('/search', ({ query }) => {
+app.get('/search', ({ query }) => {
   // Extract search term from query string, default to empty string
   const searchTerm = query.q || '';
   // Parse page number from query string, default to page 1
@@ -117,7 +111,7 @@ Handle POST/PUT requests with body data:
 
 ```typescript
 // Handle POST requests with a JSON body
-router.post('/api/users', async ({ body, set }) => {
+app.post('/api/users', async ({ body, set }) => {
   // body is automatically parsed based on Content-Type header
   const user = {
     id: crypto.randomUUID(),
@@ -146,33 +140,33 @@ BunServe automatically detects response types:
 ```typescript
 // JSON (auto-detected for objects)
 // BunServe automatically sets Content-Type to application/json
-router.get('/json', () => {
+app.get('/json', () => {
   return { message: 'JSON response' };
 });
 
 // Plain text (auto-detected for strings)
 // BunServe automatically sets Content-Type to text/plain
-router.get('/text', () => {
+app.get('/text', () => {
   return 'Plain text response';
 });
 
 // HTML
 // Explicitly set content type to HTML
-router.get('/html', ({ set }) => {
+app.get('/html', ({ set }) => {
   set.content = 'html';
   return '<h1>Hello World</h1>';
 });
 
 // Custom status code
 // Set a 404 status code for not found responses
-router.get('/not-found', ({ set }) => {
+app.get('/not-found', ({ set }) => {
   set.status = 404;
   return { error: 'Not found' };
 });
 
 // Redirect
 // Redirect the user to a new path
-router.get('/old-path', ({ set }) => {
+app.get('/old-path', ({ set }) => {
   set.redirect = '/new-path';
 });
 ```
@@ -183,16 +177,16 @@ Middleware runs before your route handlers:
 
 ```typescript
 // Import the built-in logger middleware
-import { logger } from 'bunserve';
+import { bunserve, logger } from 'bunserve';
 
-const router = create_router();
+const app = bunserve();
 
 // Global middleware - runs for all routes
 // Logger middleware logs every request with dev formatting
-router.use(logger({ format: 'dev' }));
+app.use(logger({ format: 'dev' }));
 
 // Custom middleware to log method and URL
-router.use(async ({ request }, next) => {
+app.use(async ({ request }, next) => {
   console.log(`${request.method} ${request.url}`);
   // Call next() to continue to the next middleware or route handler
   await next();
@@ -214,7 +208,7 @@ const auth_middleware = async ({ request, set }, next) => {
 };
 
 // Apply auth_middleware only to this protected route
-router.get('/protected', [auth_middleware], () => {
+app.get('/protected', [auth_middleware], () => {
   return { message: 'Protected data' };
 });
 ```
@@ -225,21 +219,23 @@ Handle errors gracefully:
 
 ```typescript
 // Import error handling utilities
-import { error_handler, HttpError } from 'bunserve';
+import { bunserve, error_handler } from 'bunserve';
 
-const router = create_router();
+const app = bunserve();
 
 // Add error handler first - catches all errors thrown in routes
-router.use(error_handler());
+app.use(error_handler());
 
-// Throw structured errors in route handlers
-router.get('/user/:id', ({ params }) => {
+// Throw errors with status property in route handlers
+app.get('/user/:id', ({ params }) => {
   // Find user by ID from your data store
   const user = users.find(u => u.id === params.id);
 
   if (!user) {
-    // Throw a structured 404 error that will be caught and formatted
-    throw HttpError.not_found('User not found');
+    // Throw an error with a status property
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   return user;
@@ -254,7 +250,7 @@ Use Bun's native cookie API:
 
 ```typescript
 // Login route that sets a session cookie
-router.post('/login', ({ body, cookies }) => {
+app.post('/login', ({ body, cookies }) => {
   // Authenticate user...
 
   // Set a secure HTTP-only session cookie
@@ -269,7 +265,7 @@ router.post('/login', ({ body, cookies }) => {
 });
 
 // Profile route that reads the session cookie
-router.get('/profile', ({ cookies }) => {
+app.get('/profile', ({ cookies }) => {
   // Read the session_id cookie
   const session_id = cookies.get('session_id');
 
@@ -281,7 +277,7 @@ router.get('/profile', ({ cookies }) => {
 });
 
 // Logout route that deletes the session cookie
-router.post('/logout', ({ cookies }) => {
+app.post('/logout', ({ cookies }) => {
   // Delete the cookie by name and path
   cookies.delete('session_id', { path: '/' });
   return { success: true };
@@ -294,39 +290,41 @@ Here's a complete REST API example:
 
 ```typescript
 // Import all necessary utilities from BunServe
-import { create_router, create_server, logger, error_handler, HttpError } from 'bunserve';
+import { bunserve, logger, error_handler } from 'bunserve';
 
 // In-memory data store using Map for fast lookups
 const users = new Map<string, { id: string; name: string; email: string }>();
 
-const router = create_router();
+const app = bunserve({ port: 3000 });
 
 // Middleware - runs before route handlers
 // Logger middleware to log all requests in dev format
-router.use(logger({ format: 'dev' }));
+app.use(logger({ format: 'dev' }));
 // Error handler to catch and format errors thrown in routes
-router.use(error_handler());
+app.use(error_handler());
 
 // Routes
 // List all users
-router.get('/api/users', () => {
+app.get('/api/users', () => {
   return { users: Array.from(users.values()) };
 });
 
 // Get a specific user by ID
-router.get('/api/users/:id', ({ params }) => {
+app.get('/api/users/:id', ({ params }) => {
   const user = users.get(params.id);
 
   if (!user) {
     // Throw 404 error if user not found
-    throw HttpError.not_found('User not found');
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   return user;
 });
 
 // Create a new user
-router.post('/api/users', async ({ body, set }) => {
+app.post('/api/users', async ({ body, set }) => {
   // Generate a unique ID for the new user
   const id = crypto.randomUUID();
   const user = { id, name: body.name, email: body.email };
@@ -340,11 +338,13 @@ router.post('/api/users', async ({ body, set }) => {
 });
 
 // Update an existing user
-router.put('/api/users/:id', async ({ params, body }) => {
+app.put('/api/users/:id', async ({ params, body }) => {
   const user = users.get(params.id);
 
   if (!user) {
-    throw HttpError.not_found('User not found');
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   // Update user properties if provided in body
@@ -356,11 +356,13 @@ router.put('/api/users/:id', async ({ params, body }) => {
 });
 
 // Delete a user
-router.delete('/api/users/:id', ({ params, set }) => {
+app.delete('/api/users/:id', ({ params, set }) => {
   const deleted = users.delete(params.id);
 
   if (!deleted) {
-    throw HttpError.not_found('User not found');
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   // Set 204 No Content status for successful deletion
@@ -369,8 +371,7 @@ router.delete('/api/users/:id', ({ params, set }) => {
 });
 
 // Start server on port 3000
-const server = create_server({ router, port: 3000 });
-server.listen();
+app.listen();
 ```
 
 Save this as `api.ts` and run:
@@ -414,31 +415,16 @@ Now that you have a basic server running, explore more features:
 
 ## Common Patterns
 
-### Health Check Endpoint
-
-```typescript
-// Import the health check utility
-import { create_health_check } from 'bunserve';
-
-// Create a health check endpoint with dependency checks
-router.get('/health', create_health_check({
-  checks: {
-    database: async () => {
-      // Return true if database is accessible, false otherwise
-      return true;
-    }
-  }
-}));
-```
-
 ### CORS Support
 
 ```typescript
 // Import CORS middleware
-import { cors } from 'bunserve';
+import { bunserve, cors } from 'bunserve';
+
+const app = bunserve();
 
 // Enable CORS for specific origins with credentials support
-router.use(cors({
+app.use(cors({
   origin: ['https://example.com'],  // Allow only this origin
   credentials: true                   // Allow cookies and credentials
 }));
@@ -450,10 +436,12 @@ Access request-scoped data anywhere:
 
 ```typescript
 // Import Context for request-scoped data storage
-import { Context } from 'bunserve';
+import { bunserve, Context } from 'bunserve';
+
+const app = bunserve();
 
 // Middleware to access request context data
-router.use(async ({}, next) => {
+app.use(async ({}, next) => {
   // Get typed context data for the current request
   const ctx = Context.get<{ request_id: string; start_time: number }>();
   console.log(`Request ID: ${ctx.request_id}`);
@@ -469,7 +457,7 @@ If you see "address already in use", change the port:
 
 ```typescript
 // Change the port to 3001 to avoid conflicts
-const server = create_server({ router, port: 3001 });
+const app = bunserve({ port: 3001 });
 ```
 
 ### TypeScript Errors

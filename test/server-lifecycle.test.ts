@@ -1,12 +1,11 @@
 import { expect, test } from 'bun:test';
-import { create_router, create_server } from '../src';
+import { bunserve } from '../src';
 
 test('server.listen starts server on specified port', async () => {
-  const router = create_router();
-  router.get('/health', () => ({ status: 'ok' }));
+  const app = bunserve({ port: 3456 });
+  app.get('/health', () => ({ status: 'ok' }));
 
-  const server = create_server({ router, port: 3456 });
-  server.listen();
+  app.listen();
 
   // Give server time to start
   await new Promise((resolve) => setTimeout(resolve, 100));
@@ -19,15 +18,14 @@ test('server.listen starts server on specified port', async () => {
   expect(data.status).toBe('ok');
 
   // Cleanup
-  await server.close();
+  await app.close();
 });
 
 test('server.listen with port override', async () => {
-  const router = create_router();
-  router.get('/test', () => 'ok');
+  const app = bunserve({ port: 3457 });
+  app.get('/test', () => 'ok');
 
-  const server = create_server({ router, port: 3457 });
-  server.listen(3458); // Override port
+  app.listen(3458); // Override port
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -35,15 +33,14 @@ test('server.listen with port override', async () => {
   const response = await fetch('http://localhost:3458/test');
   expect(response.status).toBe(200);
 
-  await server.close();
+  await app.close();
 });
 
 test('server.close stops the server', async () => {
-  const router = create_router();
-  router.get('/test', () => 'ok');
+  const app = bunserve({ port: 3459 });
+  app.get('/test', () => 'ok');
 
-  const server = create_server({ router, port: 3459 });
-  server.listen();
+  app.listen();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -52,7 +49,7 @@ test('server.close stops the server', async () => {
   expect(response1.status).toBe(200);
 
   // Close server
-  await server.close();
+  await app.close();
 
   // Wait a bit for server to fully close
   await new Promise((resolve) => setTimeout(resolve, 100));
@@ -71,31 +68,28 @@ test('server.close stops the server', async () => {
 });
 
 test('server.get_bun_server returns underlying Bun server', async () => {
-  const router = create_router();
-  router.get('/test', () => 'ok');
+  const app = bunserve({ port: 3460 });
+  app.get('/test', () => 'ok');
 
-  const server = create_server({ router, port: 3460 });
-  server.listen();
+  app.listen();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  const bunServer = server.get_bun_server();
+  const bunServer = app.get_bun_server();
   expect(bunServer).toBeDefined();
 
   // Bun server should have properties like port, hostname
   expect(bunServer.port).toBe(3460);
 
-  await server.close();
+  await app.close();
 });
 
 test('server.fetch works for testing without starting server', async () => {
-  const router = create_router();
-  router.get('/test', () => ({ message: 'testing' }));
-
-  const server = create_server({ router });
+  const app = bunserve();
+  app.get('/test', () => ({ message: 'testing' }));
 
   // Use fetch without calling listen()
-  const response = await server.fetch(new Request('http://localhost/test'));
+  const response = await app.fetch(new Request('http://localhost/test'));
 
   expect(response.status).toBe(200);
   const data = await response.json();
@@ -103,40 +97,35 @@ test('server.fetch works for testing without starting server', async () => {
 });
 
 test('Custom host configuration', async () => {
-  const router = create_router();
-  router.get('/test', () => 'ok');
-
-  const server = create_server({
-    router,
+  const app = bunserve({
     port: 3461,
     host: 'localhost'
   });
+  app.get('/test', () => 'ok');
 
-  server.listen();
+  app.listen();
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   const response = await fetch('http://localhost:3461/test');
   expect(response.status).toBe(200);
 
-  await server.close();
+  await app.close();
 });
 
 test('before_each hook runs before every request (real server)', async () => {
-  const router = create_router();
   const requests: string[] = [];
 
-  router.get('/test1', () => 'test1');
-  router.get('/test2', () => 'test2');
-
-  const server = create_server({
-    router,
+  const app = bunserve({
     port: 3467,
     before_each: (request: Request) => {
       requests.push(new URL(request.url).pathname);
     }
   });
 
-  server.listen();
+  app.get('/test1', () => 'test1');
+  app.get('/test2', () => 'test2');
+
+  app.listen();
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   // Note: before_each runs in the fetch handler, which is only called for unmatched routes
@@ -146,7 +135,7 @@ test('before_each hook runs before every request (real server)', async () => {
   await fetch('http://localhost:3467/test1');
   await fetch('http://localhost:3467/test2');
 
-  await server.close();
+  await app.close();
 
   // With native routing, before_each may not capture all requests
   // This is a known limitation - commenting out strict assertion
@@ -154,17 +143,14 @@ test('before_each hook runs before every request (real server)', async () => {
 });
 
 test('Multiple servers can run on different ports', async () => {
-  const router1 = create_router();
-  router1.get('/test', () => 'server1');
+  const app1 = bunserve({ port: 3462 });
+  app1.get('/test', () => 'server1');
 
-  const router2 = create_router();
-  router2.get('/test', () => 'server2');
+  const app2 = bunserve({ port: 3463 });
+  app2.get('/test', () => 'server2');
 
-  const server1 = create_server({ router: router1, port: 3462 });
-  const server2 = create_server({ router: router2, port: 3463 });
-
-  server1.listen();
-  server2.listen();
+  app1.listen();
+  app2.listen();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -176,22 +162,21 @@ test('Multiple servers can run on different ports', async () => {
   const text2 = await response2.text();
   expect(text2).toBe('server2');
 
-  await server1.close();
-  await server2.close();
+  await app1.close();
+  await app2.close();
 });
 
 test('Server handles concurrent requests', async () => {
-  const router = create_router();
+  const app = bunserve({ port: 3464 });
   let requestCount = 0;
 
-  router.get('/count', async () => {
+  app.get('/count', async () => {
     const current = ++requestCount;
     await new Promise((resolve) => setTimeout(resolve, 10));
     return { count: current };
   });
 
-  const server = create_server({ router, port: 3464 });
-  server.listen();
+  app.listen();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -212,42 +197,39 @@ test('Server handles concurrent requests', async () => {
   const counts = results.map((r) => r.count);
   expect(new Set(counts).size).toBe(5);
 
-  await server.close();
+  await app.close();
 });
 
 test('Server can be restarted', async () => {
-  const router = create_router();
-  router.get('/test', () => 'ok');
-
-  const server = create_server({ router, port: 3465 });
+  const app = bunserve({ port: 3465 });
+  app.get('/test', () => 'ok');
 
   // Start server
-  server.listen();
+  app.listen();
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   const response1 = await fetch('http://localhost:3465/test');
   expect(response1.status).toBe(200);
 
   // Stop server
-  await server.close();
+  await app.close();
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   // Restart server
-  server.listen();
+  app.listen();
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   const response2 = await fetch('http://localhost:3465/test');
   expect(response2.status).toBe(200);
 
-  await server.close();
+  await app.close();
 });
 
 test('Default port is 3000 if not specified', async () => {
-  const router = create_router();
-  router.get('/test', () => 'ok');
+  const app = bunserve();
+  app.get('/test', () => 'ok');
 
-  const server = create_server({ router });
-  server.listen();
+  app.listen();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -255,15 +237,14 @@ test('Default port is 3000 if not specified', async () => {
   const response = await fetch('http://localhost:3000/test');
   expect(response.status).toBe(200);
 
-  await server.close();
+  await app.close();
 });
 
 test('Default host is localhost', async () => {
-  const router = create_router();
-  router.get('/test', () => 'ok');
+  const app = bunserve({ port: 3466 });
+  app.get('/test', () => 'ok');
 
-  const server = create_server({ router, port: 3466 });
-  server.listen();
+  app.listen();
 
   await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -271,5 +252,5 @@ test('Default host is localhost', async () => {
   const response = await fetch('http://localhost:3466/test');
   expect(response.status).toBe(200);
 
-  await server.close();
+  await app.close();
 });

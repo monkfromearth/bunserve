@@ -226,8 +226,9 @@ export interface Router {
   /** Register a route for all HTTP methods */
   all<Path extends string>(path: Path, handler: RouteHandler<Path>): void;
 
-  /** Add global middleware that runs for all routes */
+  /** Add global middleware or mount sub-router at path */
   use(middleware: Middleware): void;
+  use(path: string, router: Router): void;
 
   /** Register a POST route with middleware array */
   post<Path extends string>(

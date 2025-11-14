@@ -5,81 +5,142 @@ Comprehensive guide to error handling in BunServe, from basic error responses to
 ## Quick Start
 
 ```typescript
-import { create_router, error_handler, HttpError } from 'bunserve';
+import { bunserve, error_handler } from 'bunserve';
 
-const router = create_router();
+const app = bunserve();
 
 // Add error handler middleware (should be first!)
 // This catches all errors thrown in route handlers and formats them
-router.use(error_handler());
+app.use(error_handler());
 
-// Throw structured errors in route handlers
-router.get('/user/:id', ({ params }) => {
+// Throw errors with status property in route handlers
+app.get('/user/:id', ({ params }) => {
   const user = users.find(u => u.id === params.id);
 
   if (!user) {
-    // Throw a structured 404 error that will be caught by error_handler
-    throw HttpError.not_found('User not found');
+    // Throw an error with a status property
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
   }
 
   return user;
 });
 ```
 
-## HttpError Class
+## Error Patterns
 
-BunServe provides a structured `HttpError` class for throwing HTTP errors:
+BunServe's error handler catches any error with a `.status` property. Here are recommended patterns:
 
-### Factory Methods
+### Basic Error with Status
 
 ```typescript
-// 400 Bad Request - client error with invalid input
-throw HttpError.bad_request('Invalid email format');
-throw HttpError.bad_request('Validation failed', {
-  errors: {
-    email: 'Invalid format',
-    age: 'Must be a number'
+// Simple error with status property
+app.get('/user/:id', ({ params }) => {
+  if (!user) {
+    const error: any = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+});
+```
+
+### Custom Error Class
+
+Create reusable error classes for your application:
+
+```typescript
+// Define a custom error class
+class AppError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
+// Use in routes
+app.get('/user/:id', ({ params }) => {
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+});
+```
+
+### Error Factory Functions
+
+Create factory functions for common HTTP errors:
+
+```typescript
+// Factory functions for common errors
+const NotFoundError = (message: string = 'Not found') => {
+  const error: any = new Error(message);
+  error.status = 404;
+  return error;
+};
+
+const BadRequestError = (message: string, details?: any) => {
+  const error: any = new Error(message);
+  error.status = 400;
+  error.details = details;
+  return error;
+};
+
+const UnauthorizedError = (message: string = 'Unauthorized') => {
+  const error: any = new Error(message);
+  error.status = 401;
+  return error;
+};
+
+const ForbiddenError = (message: string = 'Forbidden') => {
+  const error: any = new Error(message);
+  error.status = 403;
+  return error;
+};
+
+const ConflictError = (message: string, details?: any) => {
+  const error: any = new Error(message);
+  error.status = 409;
+  error.details = details;
+  return error;
+};
+
+const InternalError = (message: string = 'Internal server error') => {
+  const error: any = new Error(message);
+  error.status = 500;
+  return error;
+};
+
+// Use in routes
+app.get('/user/:id', ({ params }) => {
+  if (!user) {
+    throw NotFoundError('User not found');
   }
 });
 
-// 401 Unauthorized - authentication required
-throw HttpError.unauthorized();
-throw HttpError.unauthorized('Invalid credentials');
-
-// 403 Forbidden - authenticated but not authorized
-throw HttpError.forbidden();
-throw HttpError.forbidden('Insufficient permissions');
-
-// 404 Not Found - resource doesn't exist
-throw HttpError.not_found();
-throw HttpError.not_found('User not found');
-
-// 409 Conflict - resource conflict (e.g., duplicates)
-throw HttpError.conflict('Email already exists');
-
-// 500 Internal Server Error - server-side error
-throw HttpError.internal();
-throw HttpError.internal('Database connection failed');
-```
-
-### Custom Status Codes
-
-```typescript
-// Any HTTP status code with custom messages
-throw new HttpError(418, "I'm a teapot");
-throw new HttpError(503, 'Service temporarily unavailable');
+app.post('/users', async ({ body }) => {
+  if (!body.email) {
+    throw BadRequestError('Validation failed', {
+      fields: ['email'],
+      messages: { email: 'Email is required' }
+    });
+  }
+});
 ```
 
 ### Error with Details
 
 ```typescript
-// Throw error with additional details object
-throw HttpError.bad_request('Validation failed', {
-  fields: ['email', 'password'],
-  messages: {
-    email: 'Invalid email format',
-    password: 'Password too short'
-  }
+// Throw error with additional details
+app.post('/users', async ({ body }) => {
+  const error: any = new Error('Validation failed');
+  error.status = 400;
+  error.details = {
+    fields: ['email', 'password'],
+    messages: {
+      email: 'Invalid email format',
+      password: 'Password too short'
+    }
+  };
+  throw error;
 });
 
 // Response automatically includes the details:
@@ -103,10 +164,10 @@ throw HttpError.bad_request('Validation failed', {
 ```typescript
 import { error_handler } from 'bunserve'
 
-router.use(error_handler())
+app.use(error_handler())
 
 // All errors are now caught and formatted
-router.get('/fail', () => {
+app.get('/fail', () => {
   throw new Error('Something went wrong')
 })
 
@@ -119,13 +180,14 @@ router.get('/fail', () => {
 ### Configuration
 
 ```typescript
-router.use(error_handler({
+app.use(error_handler({
   // Include stack traces (default: true in dev, false in prod)
   include_stack: process.env.NODE_ENV === 'development',
 
   // Custom error formatter
   format_error: (error, context) => {
-    if (error instanceof HttpError) {
+    // Check if error has status property
+    if (error.status) {
       return {
         success: false,
         error: {
@@ -197,27 +259,34 @@ router.use(error_handler({
 
 ```typescript
 // Comprehensive input validation example
-router.post('/api/users', async ({ body, set }) => {
+app.post('/api/users', async ({ body, set }) => {
   // Validate required fields
   if (!body.email || !body.password) {
-    throw HttpError.bad_request('Email and password are required', {
+    const error: any = new Error('Email and password are required');
+    error.status = 400;
+    error.details = {
       missing_fields: !body.email ? ['email'] : ['password']
-    });
+    };
+    throw error;
   }
 
   // Validate email format
   if (!isValidEmail(body.email)) {
-    throw HttpError.bad_request('Invalid email format', {
-      field: 'email'
-    });
+    const error: any = new Error('Invalid email format');
+    error.status = 400;
+    error.details = { field: 'email' };
+    throw error;
   }
 
   // Validate password strength
   if (body.password.length < 8) {
-    throw HttpError.bad_request('Password must be at least 8 characters', {
+    const error: any = new Error('Password must be at least 8 characters');
+    error.status = 400;
+    error.details = {
       field: 'password',
       min_length: 8
-    });
+    };
+    throw error;
   }
 
   // Create user after validation succeeds
@@ -240,20 +309,23 @@ const UserSchema = z.object({
   name: z.string().min(2)
 });
 
-router.post('/api/users', async ({ body }) => {
+app.post('/api/users', async ({ body }) => {
   try {
     // Validate and parse request body
     const validated = UserSchema.parse(body);
     return await createUser(validated);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      // Convert Zod errors to structured HttpError
-      throw HttpError.bad_request('Validation failed', {
+      // Convert Zod errors to structured error with status property
+      const validationError: any = new Error('Validation failed');
+      validationError.status = 400;
+      validationError.details = {
         errors: error.errors.map(e => ({
           field: e.path.join('.'),
           message: e.message
         }))
-      });
+      };
+      throw validationError;
     }
     throw error;
   }
@@ -265,18 +337,22 @@ router.post('/api/users', async ({ body }) => {
 ### Handling Database Errors
 
 ```typescript
-router.get('/user/:id', async ({ params }) => {
+app.get('/user/:id', async ({ params }) => {
   try {
     const user = await db.query('SELECT * FROM users WHERE id = ?', [params.id])
 
     if (!user) {
-      throw HttpError.not_found('User not found')
+      const error: any = new Error('User not found');
+      error.status = 404;
+      throw error;
     }
 
     return user
   } catch (error) {
     if (error.code === 'CONNECTION_ERROR') {
-      throw HttpError.internal('Database connection failed')
+      const dbError: any = new Error('Database connection failed');
+      dbError.status = 500;
+      throw dbError;
     }
 
     throw error
@@ -287,16 +363,19 @@ router.get('/user/:id', async ({ params }) => {
 ### Unique Constraint Violations
 
 ```typescript
-router.post('/api/users', async ({ body }) => {
+app.post('/api/users', async ({ body }) => {
   try {
     const user = await db.insert('users', body)
     return user
   } catch (error) {
     if (error.code === 'UNIQUE_VIOLATION') {
-      throw HttpError.conflict('Email already exists', {
+      const conflictError: any = new Error('Email already exists');
+      conflictError.status = 409;
+      conflictError.details = {
         field: 'email',
         value: body.email
-      })
+      };
+      throw conflictError;
     }
 
     throw error
@@ -311,7 +390,9 @@ const authenticate = async ({ request, set }, next) => {
   const token = request.headers.get('authorization')
 
   if (!token) {
-    throw HttpError.unauthorized('No authorization token provided')
+    const error: any = new Error('No authorization token provided');
+    error.status = 401;
+    throw error;
   }
 
   try {
@@ -319,7 +400,9 @@ const authenticate = async ({ request, set }, next) => {
     Context.set({ user })
     await next()
   } catch (error) {
-    throw HttpError.unauthorized('Invalid or expired token')
+    const authError: any = new Error('Invalid or expired token');
+    authError.status = 401;
+    throw authError;
   }
 }
 
@@ -327,13 +410,15 @@ const requireAdmin = async ({}, next) => {
   const { user } = Context.get<{ user: User }>()
 
   if (!user.is_admin) {
-    throw HttpError.forbidden('Admin access required')
+    const error: any = new Error('Admin access required');
+    error.status = 403;
+    throw error;
   }
 
   await next()
 }
 
-router.get('/admin/users', [authenticate, requireAdmin], () => {
+app.get('/admin/users', [authenticate, requireAdmin], () => {
   return { users: [] }
 })
 ```
@@ -343,13 +428,13 @@ router.get('/admin/users', [authenticate, requireAdmin], () => {
 Async errors are automatically caught:
 
 ```typescript
-router.get('/async-fail', async () => {
+app.get('/async-fail', async () => {
   // This error is caught by error handler middleware
   const data = await fetchFromAPI()
   throw new Error('Something went wrong')
 })
 
-router.get('/promise-fail', () => {
+app.get('/promise-fail', () => {
   // Promise rejections are also caught
   return Promise.reject(new Error('Promise rejected'))
 })
@@ -360,7 +445,7 @@ router.get('/promise-fail', () => {
 ### Fallback Values
 
 ```typescript
-router.get('/user/:id', async ({ params }) => {
+app.get('/user/:id', async ({ params }) => {
   try {
     const user = await getUserFromCache(params.id)
     return user
@@ -370,7 +455,9 @@ router.get('/user/:id', async ({ params }) => {
       const user = await getUserFromDB(params.id)
       return user
     } catch (dbError) {
-      throw HttpError.not_found('User not found')
+      const error: any = new Error('User not found');
+      error.status = 404;
+      throw error;
     }
   }
 })
@@ -390,12 +477,14 @@ async function fetchWithRetry(url: string, retries = 3): Promise<any> {
   }
 }
 
-router.get('/external-data', async () => {
+app.get('/external-data', async () => {
   try {
     const data = await fetchWithRetry('https://api.example.com/data')
     return data
   } catch (error) {
-    throw HttpError.internal('Failed to fetch external data')
+    const fetchError: any = new Error('Failed to fetch external data');
+    fetchError.status = 500;
+    throw fetchError;
   }
 })
 ```
@@ -403,22 +492,24 @@ router.get('/external-data', async () => {
 ## Custom Error Classes
 
 ```typescript
-class ValidationError extends HttpError {
+class ValidationError extends Error {
+  public status = 400;
   constructor(message: string, public fields: Record<string, string>) {
-    super(400, message, { fields })
+    super(message)
     this.name = 'ValidationError'
   }
 }
 
-class DatabaseError extends HttpError {
+class DatabaseError extends Error {
+  public status = 500;
   constructor(message: string, public query?: string) {
-    super(500, message, { query })
+    super(message)
     this.name = 'DatabaseError'
   }
 }
 
 // Usage
-router.post('/api/users', async ({ body }) => {
+app.post('/api/users', async ({ body }) => {
   const errors: Record<string, string> = {}
 
   if (!body.email) errors.email = 'Email is required'
@@ -441,7 +532,7 @@ router.post('/api/users', async ({ body }) => {
 ### Structured Logging
 
 ```typescript
-router.use(error_handler({
+app.use(error_handler({
   log_error: (error, context) => {
     const log_entry = {
       timestamp: new Date().toISOString(),
@@ -473,7 +564,7 @@ Sentry.init({
   dsn: process.env.SENTRY_DSN
 })
 
-router.use(error_handler({
+app.use(error_handler({
   log_error: (error, context) => {
     Sentry.captureException(error, {
       contexts: {
@@ -493,56 +584,77 @@ router.use(error_handler({
 
 ```typescript
 // 400 Bad Request - Invalid input
-throw HttpError.bad_request('Invalid request parameters')
+const badRequestError: any = new Error('Invalid request parameters');
+badRequestError.status = 400;
+throw badRequestError;
 
 // 401 Unauthorized - Authentication required
-throw HttpError.unauthorized('Please log in')
+const unauthorizedError: any = new Error('Please log in');
+unauthorizedError.status = 401;
+throw unauthorizedError;
 
 // 403 Forbidden - Authenticated but not authorized
-throw HttpError.forbidden('Access denied')
+const forbiddenError: any = new Error('Access denied');
+forbiddenError.status = 403;
+throw forbiddenError;
 
 // 404 Not Found - Resource doesn't exist
-throw HttpError.not_found('Page not found')
+const notFoundError: any = new Error('Page not found');
+notFoundError.status = 404;
+throw notFoundError;
 
 // 409 Conflict - Resource conflict
-throw HttpError.conflict('Resource already exists')
+const conflictError: any = new Error('Resource already exists');
+conflictError.status = 409;
+throw conflictError;
 
 // 422 Unprocessable Entity - Semantic errors
-throw new HttpError(422, 'Unable to process request')
+const unprocessableError: any = new Error('Unable to process request');
+unprocessableError.status = 422;
+throw unprocessableError;
 
 // 429 Too Many Requests - Rate limit exceeded
-throw new HttpError(429, 'Rate limit exceeded')
+const rateLimitError: any = new Error('Rate limit exceeded');
+rateLimitError.status = 429;
+throw rateLimitError;
 ```
 
 ### Server Errors (5xx)
 
 ```typescript
 // 500 Internal Server Error - General error
-throw HttpError.internal('Something went wrong')
+const internalError: any = new Error('Something went wrong');
+internalError.status = 500;
+throw internalError;
 
 // 503 Service Unavailable - Temporary issue
-throw new HttpError(503, 'Service temporarily unavailable')
+const unavailableError: any = new Error('Service temporarily unavailable');
+unavailableError.status = 503;
+throw unavailableError;
 
 // 504 Gateway Timeout - Upstream timeout
-throw new HttpError(504, 'Request timeout')
+const timeoutError: any = new Error('Request timeout');
+timeoutError.status = 504;
+throw timeoutError;
 ```
 
 ## Testing Error Handling
 
 ```typescript
 import { test, expect } from 'bun:test'
-import { create_router, create_server, error_handler, HttpError } from 'bunserve'
+import { bunserve, error_handler } from 'bunserve'
 
 test('handles 404 errors', async () => {
-  const router = create_router()
-  router.use(error_handler())
+  const app = bunserve()
+  app.use(error_handler())
 
-  router.get('/fail', () => {
-    throw HttpError.not_found('Not found')
+  app.get('/fail', () => {
+    const error: any = new Error('Not found');
+    error.status = 404;
+    throw error;
   })
 
-  const server = create_server({ router })
-  const response = await server.fetch(new Request('http://localhost/fail'))
+  const response = await app.fetch(new Request('http://localhost/fail'))
 
   expect(response.status).toBe(404)
   const data = await response.json()
@@ -550,18 +662,20 @@ test('handles 404 errors', async () => {
 })
 
 test('handles validation errors', async () => {
-  const router = create_router()
-  router.use(error_handler())
+  const app = bunserve()
+  app.use(error_handler())
 
-  router.post('/validate', ({ body }) => {
+  app.post('/validate', ({ body }) => {
     if (!body.email) {
-      throw HttpError.bad_request('Email required', { field: 'email' })
+      const error: any = new Error('Email required');
+      error.status = 400;
+      error.details = { field: 'email' };
+      throw error;
     }
     return { success: true }
   })
 
-  const server = create_server({ router })
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -582,56 +696,67 @@ test('handles validation errors', async () => {
 
 ```typescript
 // Good
-router.use(error_handler())
-router.use(cors())
-router.use(logger())
+app.use(error_handler())
+app.use(cors())
+app.use(logger())
 
 // Bad - errors from other middleware won't be caught
-router.use(cors())
-router.use(logger())
-router.use(error_handler())
+app.use(cors())
+app.use(logger())
+app.use(error_handler())
 ```
 
-### 2. Use Specific Error Types
+### 2. Use Specific Error Status Codes
 
 ```typescript
-// Good
-throw HttpError.not_found('User not found')
+// Good - specify the correct HTTP status code
+const error: any = new Error('User not found');
+error.status = 404;
+throw error;
 
-// Avoid
+// Avoid - missing status means 500
 throw new Error('User not found') // Becomes 500, not 404
 ```
 
 ### 3. Include Helpful Details
 
 ```typescript
-// Good
-throw HttpError.bad_request('Validation failed', {
+// Good - include details for client debugging
+const error: any = new Error('Validation failed');
+error.status = 400;
+error.details = {
   fields: ['email', 'password'],
   errors: {
     email: 'Invalid format',
     password: 'Too short'
   }
-})
+};
+throw error;
 
 // Less helpful
-throw HttpError.bad_request('Invalid input')
+const simpleError: any = new Error('Invalid input');
+simpleError.status = 400;
+throw simpleError;
 ```
 
 ### 4. Don't Expose Sensitive Information
 
 ```typescript
-// Good
-throw HttpError.internal('Database error')
+// Good - generic error message
+const error: any = new Error('Database error');
+error.status = 500;
+throw error;
 
 // Bad - exposes internal details
-throw HttpError.internal(`Database error: ${error.message}`)
+const badError: any = new Error(`Database error: ${error.message}`);
+badError.status = 500;
+throw badError;
 ```
 
 ### 5. Log All Errors
 
 ```typescript
-router.use(error_handler({
+app.use(error_handler({
   log_error: (error, context) => {
     // Always log errors for debugging
     console.error({

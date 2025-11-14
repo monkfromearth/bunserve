@@ -5,6 +5,8 @@ import type { Middleware } from '../types';
  * Logger middleware configuration options.
  */
 export interface LoggerOptions {
+  /** Preset configuration (overridden by individual options) */
+  preset?: 'development' | 'production' | 'minimal';
   /** Whether to log requests */
   enabled?: boolean;
   /** Log format (default: 'combined') */
@@ -14,6 +16,24 @@ export interface LoggerOptions {
   /** Skip logging for certain paths */
   skip?: (path: string) => boolean;
 }
+
+/**
+ * Preset configurations for common logging scenarios.
+ */
+const PRESETS: Record<string, Partial<LoggerOptions>> = {
+  development: {
+    format: 'dev',
+    enabled: true
+  },
+  production: {
+    format: 'combined',
+    enabled: true
+  },
+  minimal: {
+    format: 'tiny',
+    enabled: true
+  }
+};
 
 /**
  * Color codes for terminal output.
@@ -77,31 +97,47 @@ function format_log(
  *
  * @example
  * ```typescript
- * import { create_router } from 'bunserve'
- * import { logger } from 'bunserve/middleware/logger'
+ * import { bunserve, logger } from 'bunserve';
  *
- * const router = create_router()
+ * const app = bunserve();
  *
- * // Basic logging
- * router.use(logger())
+ * // Use preset
+ * app.use(logger({ preset: 'development' }));
  *
- * // Development-style logging with colors
- * router.use(logger({ format: 'dev' }))
+ * // Production preset
+ * app.use(logger({ preset: 'production' }));
  *
- * // Custom logging
- * router.use(logger({
+ * // Custom configuration (no preset)
+ * app.use(logger({
  *   format: 'combined',
  *   skip: (path) => path.startsWith('/health')
- * }))
+ * }));
+ *
+ * // Preset with overrides
+ * app.use(logger({
+ *   preset: 'development',
+ *   skip: (path) => path === '/health'  // Override preset's skip
+ * }));
  * ```
  */
 export function logger(options: LoggerOptions = {}): Middleware {
+  // Apply preset if specified
+  let config: LoggerOptions = { ...options };
+
+  if (options.preset) {
+    const preset_config = PRESETS[options.preset];
+    if (preset_config) {
+      // Merge preset with user options (user options take precedence)
+      config = { ...preset_config, ...options };
+    }
+  }
+
   const {
     enabled = true,
     format = 'dev',
     log = console.log,
     skip = () => false
-  } = options;
+  } = config;
 
   if (!enabled) {
     return async (_context, next) => {
@@ -142,15 +178,25 @@ export function logger(options: LoggerOptions = {}): Middleware {
 }
 
 /**
- * Preset logger configurations.
+ * @deprecated Use `logger({ preset: 'development' })` instead
+ * Preset logger configurations for common scenarios.
  */
 export const logger_presets = {
-  /** Development logger with colors and request IDs */
-  development: (): Middleware => logger({ format: 'dev' }),
+  /**
+   * Development logger with colors and request IDs.
+   * @deprecated Use `logger({ preset: 'development' })` instead
+   */
+  development: (): Middleware => logger({ preset: 'development' }),
 
-  /** Production logger with timestamps */
-  production: (): Middleware => logger({ format: 'combined' }),
+  /**
+   * Production logger with timestamps.
+   * @deprecated Use `logger({ preset: 'production' })` instead
+   */
+  production: (): Middleware => logger({ preset: 'production' }),
 
-  /** Minimal logger for performance */
-  minimal: (): Middleware => logger({ format: 'tiny' })
+  /**
+   * Minimal logger for performance.
+   * @deprecated Use `logger({ preset: 'minimal' })` instead
+   */
+  minimal: (): Middleware => logger({ preset: 'minimal' })
 };

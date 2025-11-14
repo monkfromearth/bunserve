@@ -1,12 +1,25 @@
-import type { RouterImpl } from './router';
-import type { ServerConfig } from './types';
+import { RouterImpl, router } from './router';
+import type { Middleware, Router } from './types';
 
 /**
- * Server interface for HTTP server lifecycle management.
+ * Configuration options for BunServe server.
  */
-export interface Server {
+export interface ServerOptions {
+  /** Default port to listen on (default: 3000) */
+  port?: number;
+  /** Default host to bind to (default: 'localhost') */
+  host?: string;
+  /** Optional hook that runs before each request */
+  before_each?: (request: Request) => void;
+}
+
+/**
+ * Server interface extending Router with server lifecycle management.
+ * The app IS a router, but also has server capabilities.
+ */
+export interface Server extends Router {
   /** Start the server listening on the specified port */
-  listen(port?: number): void;
+  listen(port?: number, host?: string): void;
   /** Get the underlying Bun server instance */
   get_bun_server(): any;
   /** Handle a single HTTP request (useful for testing) */
@@ -16,57 +29,118 @@ export interface Server {
 }
 
 /**
- * Server implementation providing HTTP server functionality using Bun.serve.
- * Delegates routing to Bun's native router for optimal performance.
+ * Server implementation that IS a router with server capabilities.
+ * Delegates all routing to internal RouterImpl.
  */
 class ServerImpl implements Server {
   /** Underlying Bun.serve instance */
   private bun_server: any;
-  /** Router instance for building routes */
+  /** Internal router for handling routes */
   private router: RouterImpl;
-  /** Server configuration */
-  private config: ServerConfig;
+  /** Default port */
+  private default_port: number;
+  /** Default host */
+  private default_host: string;
+  /** Optional before_each hook */
+  private before_each_hook?: (request: Request) => void;
 
   /**
    * Create a new server instance.
-   * @param config - Server configuration including router and optional settings
    */
-  constructor(config: ServerConfig) {
-    this.router = config.router as RouterImpl;
-    this.config = {
-      port: 3000,
-      host: 'localhost',
-      ...config
-    };
+  constructor(options: ServerOptions = {}) {
+    this.router = router() as RouterImpl;
+    this.default_port = options.port || 3000;
+    this.default_host = options.host || 'localhost';
+    this.before_each_hook = options.before_each;
   }
+
+  // ==========================================
+  // Router methods - delegate to internal router
+  // ==========================================
+
+  get<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.get(path, ...args);
+  }
+
+  post<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.post(path, ...args);
+  }
+
+  put<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.put(path, ...args);
+  }
+
+  patch<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.patch(path, ...args);
+  }
+
+  delete<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.delete(path, ...args);
+  }
+
+  options<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.options(path, ...args);
+  }
+
+  head<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.head(path, ...args);
+  }
+
+  all<Path extends string>(path: Path, ...args: any[]): void {
+    // @ts-expect-error - args spread
+    this.router.all(path, ...args);
+  }
+
+  use(middleware_or_path: Middleware | string, router?: Router): void {
+    if (typeof middleware_or_path === 'string' && router) {
+      // Mount sub-router at path
+      this.router.use(middleware_or_path, router);
+    } else {
+      // Add global middleware
+      this.router.use(middleware_or_path as Middleware);
+    }
+  }
+
+  build_routes() {
+    return this.router.build_routes();
+  }
+
+  // ==========================================
+  // Server lifecycle methods
+  // ==========================================
 
   /**
    * Start the server listening on the specified port.
-   * @param port - Port number to listen on (uses config default if not specified)
+   * @param port - Port number to listen on (default: 3000)
+   * @param host - Host to bind to (default: 'localhost')
    */
-  listen(port?: number): void {
-    const listen_port = port || this.config.port || 3000;
+  listen(port?: number, host?: string): void {
+    const listen_port = port || this.default_port;
+    const listen_host = host || this.default_host;
 
-    // Build Bun-native routes from router
+    // Build Bun-native routes from internal router
     const routes = this.router.build_routes();
 
     // Create Bun server with native routes
     this.bun_server = Bun.serve({
       port: listen_port,
-      hostname: this.config.host,
+      hostname: listen_host,
       routes: routes as any, // Type cast needed due to Bun's internal types
       // Fallback fetch for unmatched routes
-      fetch: (req: Request) => {
-        // If before_each is defined, call it
-        if (this.config.before_each) {
-          this.config.before_each(req);
-        }
+      fetch: (_req: Request) => {
         return new Response('Not Found', { status: 404 });
       }
     });
 
     console.log(
-      `🚀 BunServe server running at http://${this.config.host}:${listen_port}`
+      `🚀 BunServe server running at http://${listen_host}:${listen_port}`
     );
   }
 
@@ -199,10 +273,11 @@ class ServerImpl implements Server {
 }
 
 /**
- * Factory function to create a new server instance.
- * @param config - Server configuration
- * @returns New server instance
+ * Factory function to create a new BunServe app instance.
+ * The app is a router with server capabilities (like Express).
+ * @param options - Optional server configuration
+ * @returns New server instance that implements Router
  */
-export function create_server(config: ServerConfig): Server {
-  return new ServerImpl(config);
+export function bunserve(options?: ServerOptions): Server {
+  return new ServerImpl(options);
 }

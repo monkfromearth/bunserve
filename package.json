@@ -55,8 +55,12 @@
     "@theinternetfolks/context": "^2.3.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.4",
+    "@biomejs/biome": "2.2.6",
     "@types/bun": "^1.0.0",
+    "@types/express": "^5.0.5",
+    "elysia": "^1.4.16",
+    "express": "^5.1.0",
+    "hono": "^4.10.5",
     "typescript": "^5.0.0"
   },
   "engines": {

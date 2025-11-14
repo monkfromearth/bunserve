@@ -1,16 +1,15 @@
 import { expect, test } from 'bun:test';
-import { create_router, create_server } from '../src';
+import { bunserve } from '../src';
 
 test('CSV response with custom filename', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/export', ({ set }) => {
+  app.get('/export', ({ set }) => {
     set.content = { type: 'csv', filename: 'users.csv' };
     return 'name,email\nJohn,john@example.com';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/export'));
+  const response = await app.fetch(new Request('http://localhost/export'));
 
   expect(response.status).toBe(200);
   expect(response.headers.get('Content-Type')).toBe('text/csv');
@@ -22,108 +21,97 @@ test('CSV response with custom filename', async () => {
 });
 
 test('Image responses - PNG', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/image.png', ({ set }) => {
+  app.get('/image.png', ({ set }) => {
     set.content = 'png';
     return 'fake-png-data';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request('http://localhost/image.png')
-  );
+  const response = await app.fetch(new Request('http://localhost/image.png'));
 
   expect(response.status).toBe(200);
   expect(response.headers.get('Content-Type')).toBe('image/png');
 });
 
 test('Image responses - SVG', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/image.svg', ({ set }) => {
+  app.get('/image.svg', ({ set }) => {
     set.content = 'svg';
     return '<svg></svg>';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request('http://localhost/image.svg')
-  );
+  const response = await app.fetch(new Request('http://localhost/image.svg'));
 
   expect(response.status).toBe(200);
   expect(response.headers.get('Content-Type')).toBe('image/svg');
 });
 
 test('XML response', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/feed', ({ set }) => {
+  app.get('/feed', ({ set }) => {
     set.content = 'xml';
     return '<?xml version="1.0"?><feed></feed>';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/feed'));
+  const response = await app.fetch(new Request('http://localhost/feed'));
 
   expect(response.status).toBe(200);
   expect(response.headers.get('Content-Type')).toBe('application/xml');
 });
 
 test('Cache-Control header - 1 hour', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/cached', ({ set }) => {
+  app.get('/cached', ({ set }) => {
     set.cache = '1h';
     return 'cached content';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/cached'));
+  const response = await app.fetch(new Request('http://localhost/cached'));
 
   expect(response.headers.get('Cache-Control')).toBe('public, max-age=3600');
 });
 
 test('Cache-Control header - 30 days', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/cached', ({ set }) => {
+  app.get('/cached', ({ set }) => {
     set.cache = '30d';
     return 'cached content';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/cached'));
+  const response = await app.fetch(new Request('http://localhost/cached'));
 
   expect(response.headers.get('Cache-Control')).toBe('public, max-age=2592000');
 });
 
 test('Cache-Control header - invalid duration falls back to 0', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/cached', ({ set }) => {
+  app.get('/cached', ({ set }) => {
     set.cache = 'invalid';
     return 'content';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/cached'));
+  const response = await app.fetch(new Request('http://localhost/cached'));
 
   // Invalid duration should default to 0
   expect(response.headers.get('Cache-Control')).toBe('public, max-age=0');
 });
 
 test('Redirect response', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/old', ({ set }) => {
+  app.get('/old', ({ set }) => {
     set.redirect = '/new';
     set.status = 302;
     return null;
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/old'), {
+  const response = await app.fetch(new Request('http://localhost/old'), {
     redirect: 'manual'
   });
 
@@ -132,80 +120,69 @@ test('Redirect response', async () => {
 });
 
 test('Custom headers', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/custom', ({ set }) => {
+  app.get('/custom', ({ set }) => {
     set.headers['X-Custom-Header'] = 'custom-value';
     set.headers['X-Request-ID'] = '12345';
     return { success: true };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/custom'));
+  const response = await app.fetch(new Request('http://localhost/custom'));
 
   expect(response.headers.get('X-Custom-Header')).toBe('custom-value');
   expect(response.headers.get('X-Request-ID')).toBe('12345');
 });
 
 test('Auto content-type detection - JSON object', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/auto-json', () => {
+  app.get('/auto-json', () => {
     return { message: 'hello' };
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request('http://localhost/auto-json')
-  );
+  const response = await app.fetch(new Request('http://localhost/auto-json'));
 
   expect(response.headers.get('Content-Type')).toContain('application/json');
 });
 
 test('Auto content-type detection - string', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/auto-text', () => {
+  app.get('/auto-text', () => {
     return 'plain text';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request('http://localhost/auto-text')
-  );
+  const response = await app.fetch(new Request('http://localhost/auto-text'));
 
   expect(response.headers.get('Content-Type')).toContain('text/plain');
 });
 
 test('Auto content-type detection - HTML (explicit)', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/auto-html', ({ set }) => {
+  app.get('/auto-html', ({ set }) => {
     // Auto mode treats strings as text/plain, so explicitly set html
     set.content = 'html';
     return '<html><body>Hello</body></html>';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
-    new Request('http://localhost/auto-html')
-  );
+  const response = await app.fetch(new Request('http://localhost/auto-html'));
 
   expect(response.headers.get('Content-Type')).toContain('text/html');
 });
 
 test('Multiple response headers can be set', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/multi-headers', ({ set }) => {
+  app.get('/multi-headers', ({ set }) => {
     set.headers['X-Header-1'] = 'value1';
     set.headers['X-Header-2'] = 'value2';
     set.headers['X-Header-3'] = 'value3';
     return 'ok';
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/multi-headers')
   );
 
@@ -215,14 +192,13 @@ test('Multiple response headers can be set', async () => {
 });
 
 test('Response with null returns empty 200', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.get('/null', () => {
+  app.get('/null', () => {
     return null;
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(new Request('http://localhost/null'));
+  const response = await app.fetch(new Request('http://localhost/null'));
 
   expect(response.status).toBe(200);
   const text = await response.text();
@@ -230,15 +206,14 @@ test('Response with null returns empty 200', async () => {
 });
 
 test('Response with 204 No Content', async () => {
-  const router = create_router();
+  const app = bunserve();
 
-  router.delete('/resource', ({ set }) => {
+  app.delete('/resource', ({ set }) => {
     set.status = 204;
     return null;
   });
 
-  const server = create_server({ router });
-  const response = await server.fetch(
+  const response = await app.fetch(
     new Request('http://localhost/resource', { method: 'DELETE' })
   );
 

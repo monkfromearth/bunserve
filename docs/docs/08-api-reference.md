@@ -4,36 +4,27 @@ Complete API reference for BunServe.
 
 ## Core Functions
 
-### `create_router()`
+### `bunserve(config?)`
 
-Creates a new router instance for registering routes.
-
-**Returns**: `Router`
-
-**Example**:
-```typescript
-// Create a new router instance
-import { create_router } from 'bunserve';
-
-const router = create_router();
-```
-
-### `create_server(config)`
-
-Creates a new HTTP server with the provided configuration.
+Creates a new BunServe application instance with routing and server capabilities.
 
 **Parameters**:
-- `config: ServerConfig` - Server configuration object
+- `config?: ServerConfig` - Optional server configuration object
 
-**Returns**: `Server`
+**Returns**: `App` - Application instance with routing methods and server control
 
 **Example**:
 ```typescript
-// Create a server with configuration options
-import { create_server } from 'bunserve';
+// Create a new application instance
+import { bunserve } from 'bunserve';
 
-const server = create_server({
-  router,                    // Router instance with routes
+// Simple usage
+const app = bunserve();
+app.get('/', () => 'Hello World');
+app.listen(3000);
+
+// With configuration
+const app = bunserve({
   port: 3000,               // Port to listen on
   host: 'localhost',        // Host address
   before_each: async (request) => {
@@ -43,14 +34,39 @@ const server = create_server({
 });
 ```
 
+### `router()`
+
+Creates a sub-router for modular route organization. Use this to create separate routers that can be mounted on the main application.
+
+**Returns**: `Router`
+
+**Example**:
+```typescript
+// Create a sub-router for API endpoints
+import { bunserve, router } from 'bunserve';
+
+// Create main app
+const app = bunserve();
+
+// Create a sub-router for user routes
+const userRouter = router();
+userRouter.get('/users', () => ({ users: [] }));
+userRouter.get('/users/:id', ({ params }) => ({ id: params.id }));
+
+// Mount the sub-router under /api path
+app.use('/api', userRouter);
+
+app.listen(3000);
+```
+
 ## Router Interface
 
 ### HTTP Method Functions
 
 Register routes for specific HTTP methods.
 
-#### `router.get(path, handler)`
-#### `router.get(path, middlewares, handler)`
+#### `app.get(path, handler)`
+#### `app.get(path, middlewares, handler)`
 
 Register a GET route.
 
@@ -62,60 +78,61 @@ Register a GET route.
 **Example**:
 ```typescript
 // Register a GET route with automatic parameter extraction
-router.get('/users/:id', ({ params }) => {
+// The context parameter is destructured to { params }
+app.get('/users/:id', ({ params }) => {
   return { user_id: params.id };
 });
 
 // Register a GET route with middleware array
-router.get('/admin', [requireAuth, requireAdmin], () => {
+app.get('/admin', [requireAuth, requireAdmin], () => {
   return { admin: true };
 });
 ```
 
-#### `router.post(path, handler)`
-#### `router.post(path, middlewares, handler)`
+#### `app.post(path, handler)`
+#### `app.post(path, middlewares, handler)`
 
 Register a POST route.
 
 **Example**:
 ```typescript
 // Register a POST route to create a user
-router.post('/users', async ({ body }) => {
+app.post('/users', async ({ body }) => {
   return await createUser(body);
 });
 ```
 
-#### `router.put(path, handler)`
-#### `router.put(path, middlewares, handler)`
+#### `app.put(path, handler)`
+#### `app.put(path, middlewares, handler)`
 
 Register a PUT route.
 
-#### `router.patch(path, handler)`
-#### `router.patch(path, middlewares, handler)`
+#### `app.patch(path, handler)`
+#### `app.patch(path, middlewares, handler)`
 
 Register a PATCH route.
 
-#### `router.delete(path, handler)`
-#### `router.delete(path, middlewares, handler)`
+#### `app.delete(path, handler)`
+#### `app.delete(path, middlewares, handler)`
 
 Register a DELETE route.
 
-#### `router.options(path, handler)`
-#### `router.options(path, middlewares, handler)`
+#### `app.options(path, handler)`
+#### `app.options(path, middlewares, handler)`
 
 Register an OPTIONS route.
 
-#### `router.head(path, handler)`
-#### `router.head(path, middlewares, handler)`
+#### `app.head(path, handler)`
+#### `app.head(path, middlewares, handler)`
 
 Register a HEAD route.
 
-#### `router.all(path, handler)`
-#### `router.all(path, middlewares, handler)`
+#### `app.all(path, handler)`
+#### `app.all(path, middlewares, handler)`
 
 Register a route that matches all HTTP methods.
 
-### `router.use(middleware)`
+### `app.use(middleware)`
 
 Add global middleware that runs for all routes.
 
@@ -125,13 +142,14 @@ Add global middleware that runs for all routes.
 **Example**:
 ```typescript
 // Add global middleware that runs for all routes
-router.use(async ({ request }, next) => {
+// The context parameter is destructured to { request }
+app.use(async ({ request }, next) => {
   console.log(`${request.method} ${request.url}`);
   await next(); // Continue to next middleware or handler
 });
 ```
 
-### `router.build_routes()`
+### `app.build_routes()`
 
 Build and return Bun-compatible routes object. (Internal use)
 
@@ -272,11 +290,10 @@ interface CookieOptions {
 
 ### `ServerConfig`
 
-Server configuration interface.
+Server configuration interface for the bunserve() function.
 
 ```typescript
 interface ServerConfig {
-  router: Router
   port?: number
   host?: string
   before_each?: (request: Request) => Promise<void> | void
@@ -284,14 +301,13 @@ interface ServerConfig {
 ```
 
 **Properties**:
-- `router` - Router instance
 - `port` - Port number (default: 3000)
 - `host` - Host address (default: 'localhost')
 - `before_each` - Hook called before each request
 
-## Server Interface
+## App Interface
 
-### `server.listen(port?)`
+### `app.listen(port?)`
 
 Start the server listening on the specified port.
 
@@ -300,11 +316,15 @@ Start the server listening on the specified port.
 
 **Example**:
 ```typescript
-// Start the server listening on port 3000
-server.listen(3000);
+// Start the app listening on port 3000
+app.listen(3000);
+
+// Or use the configured port
+const app = bunserve({ port: 3000 });
+app.listen();
 ```
 
-### `server.fetch(request)`
+### `app.fetch(request)`
 
 Handle a single HTTP request. Useful for testing.
 
@@ -316,12 +336,15 @@ Handle a single HTTP request. Useful for testing.
 **Example**:
 ```typescript
 // Handle a single HTTP request (useful for testing)
-const response = await server.fetch(
+const app = bunserve();
+app.get('/users', () => ({ users: [] }));
+
+const response = await app.fetch(
   new Request('http://localhost/api/users')
 );
 ```
 
-### `server.close()`
+### `app.close()`
 
 Stop the server and release resources.
 
@@ -329,11 +352,11 @@ Stop the server and release resources.
 
 **Example**:
 ```typescript
-// Stop the server and release resources
-await server.close();
+// Stop the app and release resources
+await app.close();
 ```
 
-### `server.get_bun_server()`
+### `app.get_bun_server()`
 
 Get the underlying Bun server instance.
 
@@ -342,7 +365,7 @@ Get the underlying Bun server instance.
 **Example**:
 ```typescript
 // Get the underlying Bun server instance
-const bun_server = server.get_bun_server();
+const bun_server = app.get_bun_server();
 console.log(`Active requests: ${bun_server.pendingRequests}`);
 ```
 
@@ -362,7 +385,7 @@ Error handling middleware that catches and formats errors.
 // Configure error handler middleware
 import { error_handler } from 'bunserve';
 
-router.use(error_handler({
+app.use(error_handler({
   include_stack: true,  // Include stack traces in error responses
   format_error: (error, context) => ({
     error: error.message
@@ -396,7 +419,7 @@ CORS middleware for handling Cross-Origin Resource Sharing.
 // Configure CORS middleware
 import { cors } from 'bunserve';
 
-router.use(cors({
+app.use(cors({
   origin: ['https://example.com'],                      // Allowed origins
   credentials: true,                                     // Allow cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE'],            // Allowed HTTP methods
@@ -431,7 +454,7 @@ Request logging middleware.
 // Configure logger middleware
 import { logger } from 'bunserve';
 
-router.use(logger({
+app.use(logger({
   format: 'dev',                          // Use dev format with colors
   skip: (path) => path === '/health'      // Skip logging for health checks
 }));
@@ -447,123 +470,68 @@ interface LoggerOptions {
 }
 ```
 
-## Error Classes
+## Error Handling
 
-### `HttpError`
+BunServe's error handler catches any Error with a `.status` property. You can throw errors in several ways:
 
-HTTP error class for structured error responses.
-
-#### Constructor
+### Plain Error with Status Property
 
 ```typescript
-new HttpError(status: number, message: string, details?: any)
-```
-
-#### Factory Methods
-
-**`HttpError.bad_request(message, details?)`**
-
-Create a 400 Bad Request error.
-
-**`HttpError.unauthorized(message?)`**
-
-Create a 401 Unauthorized error.
-
-**`HttpError.forbidden(message?)`**
-
-Create a 403 Forbidden error.
-
-**`HttpError.not_found(message?)`**
-
-Create a 404 Not Found error.
-
-**`HttpError.conflict(message, details?)`**
-
-Create a 409 Conflict error.
-
-**`HttpError.internal(message?)`**
-
-Create a 500 Internal Server Error.
-
-**Example**:
-```typescript
-import { HttpError } from 'bunserve';
-
-// Throw specific HTTP errors
-throw HttpError.not_found('User not found');
-
-// Throw error with additional details
-throw HttpError.bad_request('Invalid input', {
-  fields: ['email', 'password']
+// Simple approach - add status property to any Error
+app.get('/user/:id', ({ params }) => {
+  const error: any = new Error('User not found');
+  error.status = 404;
+  throw error;
 });
 
-// Create custom HTTP status error
-throw new HttpError(418, "I'm a teapot");
+// With details
+app.post('/users', async ({ body }) => {
+  const error: any = new Error('Invalid input');
+  error.status = 400;
+  error.details = {
+    fields: ['email', 'password']
+  };
+  throw error;
+});
 ```
 
-## Health Check Functions
+### Custom Error Classes
 
-### `create_health_check(options?)`
-
-Create a health check handler.
-
-**Parameters**:
-- `options?: HealthCheckOptions`
-
-**Returns**: `RouteHandler`
-
-**Example**:
 ```typescript
-// Create a health check endpoint with dependency checks
-import { create_health_check } from 'bunserve';
-
-router.get('/health', create_health_check({
-  checks: {
-    database: async () => {
-      // Check if database is accessible
-      return await checkDatabase();
-    },
-    redis: async () => {
-      // Check if Redis is accessible
-      return await checkRedis();
-    }
-  },
-  include_system_info: true  // Include system metrics in response
-}));
-```
-
-**HealthCheckOptions**:
-```typescript
-interface HealthCheckOptions {
-  checks?: Record<string, HealthCheck>
-  include_system_info?: boolean
+// Create reusable error classes
+class AppError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
 }
 
-type HealthCheck = () => Promise<boolean> | boolean
+// Use in routes
+throw new AppError('User not found', 404);
+throw new AppError('Invalid input', 400);
 ```
 
-**Response Format**:
+### Error Factory Functions
+
 ```typescript
-interface HealthCheckResult {
-  status: 'healthy' | 'unhealthy' | 'degraded'
-  timestamp: string
-  uptime: number
-  checks?: Record<string, boolean>
-}
+// Create factory functions for common errors
+const NotFoundError = (message: string) => {
+  const error: any = new Error(message);
+  error.status = 404;
+  return error;
+};
+
+const BadRequestError = (message: string, details?: any) => {
+  const error: any = new Error(message);
+  error.status = 400;
+  error.details = details;
+  return error;
+};
+
+// Use in routes
+throw NotFoundError('User not found');
+throw BadRequestError('Invalid input', { fields: ['email'] });
 ```
 
-### `simple_health_check()`
-
-Simple health check that always returns healthy.
-
-**Returns**: `RouteHandler`
-
-**Example**:
-```typescript
-import { simple_health_check } from 'bunserve'
-
-router.get('/health', simple_health_check())
-```
 
 ## Context Management
 
@@ -613,33 +581,34 @@ console.log(ctx?.user_id);
 ### CORS Presets
 
 ```typescript
-import { cors_presets } from 'bunserve'
+import { cors } from 'bunserve'
 
-// Allow all origins
-router.use(cors_presets.allow_all())
+// Development preset (allows localhost)
+app.use(cors({ preset: 'development' }))
 
-// Development (allows localhost)
-router.use(cors_presets.development())
+// Production preset (requires explicit origins)
+app.use(cors({
+  preset: 'production',
+  allowed_origins: ['https://example.com']
+}))
 
-// Production (requires explicit origins)
-router.use(cors_presets.production([
-  'https://example.com'
-]))
+// Allow all preset
+app.use(cors({ preset: 'allow_all' }))
 ```
 
 ### Logger Presets
 
 ```typescript
-import { logger_presets } from 'bunserve'
+import { logger } from 'bunserve'
 
-// Development (with colors)
-router.use(logger_presets.development())
+// Development preset (with colors)
+app.use(logger({ preset: 'development' }))
 
-// Production (with timestamps)
-router.use(logger_presets.production())
+// Production preset (with timestamps)
+app.use(logger({ preset: 'production' }))
 
-// Minimal
-router.use(logger_presets.minimal())
+// Minimal preset
+app.use(logger({ preset: 'minimal' }))
 ```
 
 ## Environment Variables
@@ -672,7 +641,7 @@ BunServe is fully typed with TypeScript:
 
 ```typescript
 // TypeScript infers the parameter types automatically from the route path
-router.get('/users/:userId/posts/:postId', ({ params }) => {
+app.get('/users/:userId/posts/:postId', ({ params }) => {
   // params is typed as { userId: string; postId: string }
   const userId: string = params.userId;
   const postId: string = params.postId;
