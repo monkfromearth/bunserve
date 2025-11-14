@@ -27,7 +27,7 @@ test('security() with custom CSP directives', async () => {
 
   app.use(
     security({
-      contentSecurityPolicy: {
+      content_security_policy: {
         directives: {
           'default-src': ["'self'"],
           'script-src': ["'self'", "'unsafe-inline'"],
@@ -52,8 +52,8 @@ test('security() can disable specific headers', async () => {
 
   app.use(
     security({
-      contentSecurityPolicy: false,
-      strictTransportSecurity: false
+      content_security_policy: false,
+      strict_transport_security: false
     })
   );
   app.get('/test', () => ({ success: true }));
@@ -71,7 +71,7 @@ test('security() with custom frame options', async () => {
 
   app.use(
     security({
-      frameOptions: 'SAMEORIGIN'
+      frame_options: 'SAMEORIGIN'
     })
   );
   app.get('/test', () => ({ success: true }));
@@ -86,9 +86,9 @@ test('security() with custom HSTS configuration', async () => {
 
   app.use(
     security({
-      strictTransportSecurity: {
-        maxAge: 86400, // 1 day
-        includeSubDomains: false,
+      strict_transport_security: {
+        max_age: 86400, // 1 day
+        include_sub_domains: false,
         preload: true
       }
     })
@@ -131,7 +131,7 @@ test('security() with custom permissions policy', async () => {
 
   app.use(
     security({
-      permissionsPolicy: {
+      permissions_policy: {
         camera: ['self'],
         microphone: [],
         geolocation: ['self', 'https://example.com']
@@ -153,7 +153,7 @@ test('security() with custom referrer policy', async () => {
 
   app.use(
     security({
-      referrerPolicy: 'strict-origin-when-cross-origin'
+      referrer_policy: 'strict-origin-when-cross-origin'
     })
   );
   app.get('/test', () => ({ success: true }));

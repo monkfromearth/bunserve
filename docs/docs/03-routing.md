@@ -588,6 +588,6 @@ app.get('/api/admin/*', [requireAdmin], ({ params }) => {
 ## Next Steps
 
 - **[Middleware](./04-middleware.md)** - Add authentication, logging, and more
-- **[Response Handling](./responses.md)** - Different response types
+- **[Response Handling](./09-responses.md)** - Different response types
 - **[Error Handling](./05-error-handling.md)** - Handle errors gracefully
 - **[Examples](./07-examples.md)** - Complete example applications

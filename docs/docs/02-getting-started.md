@@ -409,7 +409,7 @@ Now that you have a basic server running, explore more features:
 
 - **[Routing Guide](./03-routing.md)** - Advanced routing patterns including wildcards
 - **[Middleware](./04-middleware.md)** - CORS, authentication, rate limiting
-- **[Response Handling](./responses.md)** - Different content types and file serving
+- **[Response Handling](./09-responses.md)** - Different content types and file serving
 - **[Error Handling](./05-error-handling.md)** - Advanced error handling patterns
 - **[Examples](./07-examples.md)** - Real-world example applications
 
@@ -481,5 +481,6 @@ BunServe uses Bun's native router for optimal performance. If you're experiencin
 
 - Check the [API Reference](./08-api-reference.md)
 - Browse [Examples](./07-examples.md)
-- Read about [Best Practices](./best-practices.md)
-- Open an issue on [GitHub](https://github.com/yourusername/bunserve)
+- Read about [Best Practices](./10-best-practices.md)
+- Read about [Deployment](./11-deployment.md)
+- Open an issue on [GitHub](https://github.com/bunserve/bunserve/issues)

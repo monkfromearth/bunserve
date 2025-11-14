@@ -143,8 +143,9 @@ Explore the documentation to learn more:
 
 ## Community
 
-- **GitHub**: [Report issues](https://github.com/yourusername/bunserve/issues)
-- **Documentation**: [Full docs](https://bunserve.dev)
+- **GitHub**: [GitHub Repository](https://github.com/bunserve/bunserve)
+- **Issues**: [Report bugs or request features](https://github.com/bunserve/bunserve/issues)
+- **Documentation**: You're reading it!
 - **Examples**: [Example projects](./07-examples.md)
 
 ## License

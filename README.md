@@ -30,6 +30,39 @@ BunServe provides a modern, type-safe HTTP routing library for Bun that combines
 bun add bunserve
 ```
 
+## Why BunServe?
+
+Choosing the right web framework depends on your priorities. Here's how BunServe compares to popular alternatives:
+
+| Feature | BunServe | Express | Hono | Elysia |
+|---------|----------|---------|------|--------|
+| **Runtime** | Bun | Node.js | Any (Bun/Node/Deno/Edge) | Bun |
+| **Performance** | ~2-7% overhead vs raw Bun | Slow (~10-20k req/s) | Fast (~30k req/s) | Very Fast (~35k req/s) |
+| **API Style** | Express-like | Express | Hono-specific | Elysia-specific |
+| **Type Safety** | Full (inferred params) | Partial | Full | Full |
+| **Learning Curve** | Low (familiar API) | Low | Medium | Medium-High |
+| **Middleware** | Built-in + Express-like | Rich ecosystem | Built-in | Built-in |
+| **Context Management** | AsyncLocalStorage | Manual | Manual | Built-in |
+| **File Uploads** | Bun native | Multer required | Built-in | Built-in |
+| **Validation** | Bring your own | Bring your own | Built-in | Built-in (TypeBox) |
+| **WebSockets** | Bun native | External lib required | Built-in | Built-in |
+| **Bun Optimization** | ✅ Native routes | ❌ N/A | ✅ Optimized | ✅ Optimized |
+| **Migration Path** | Easy from Express | N/A | New API to learn | New API to learn |
+| **Bundle Size** | Minimal | Large | Small | Small |
+| **Best For** | Express users on Bun, rapid development | Node.js ecosystem, mature projects | Cross-runtime apps | Bun-first, schema validation |
+
+**When to choose BunServe:**
+- ✅ Migrating from Express to Bun
+- ✅ Want familiar API with Bun performance
+- ✅ Need minimal learning curve
+- ✅ Rapid prototyping and development
+- ✅ Express-like middleware ecosystem
+
+**When to choose alternatives:**
+- **Express**: Staying on Node.js, need massive middleware ecosystem
+- **Hono**: Need cross-runtime compatibility (Cloudflare Workers, Deno, etc.)
+- **Elysia**: Want built-in validation, Bun-first features, schema-driven development
+
 ## Performance
 
 BunServe delivers exceptional performance with minimal overhead over Bun's native routing:
@@ -310,7 +343,7 @@ app.use(security());
 
 // Custom configuration
 app.use(security({
-  contentSecurityPolicy: {
+  content_security_policy: {
     directives: {
       'default-src': ["'self'"],
       'script-src': ["'self'", "'unsafe-inline'"],    // Allow inline scripts if needed
@@ -318,18 +351,18 @@ app.use(security({
       'img-src': ["'self'", 'https:', 'data:']
     }
   },
-  frameOptions: 'SAMEORIGIN',                         // Allow framing from same origin
-  strictTransportSecurity: {
-    maxAge: 31536000,                                 // 1 year
-    includeSubDomains: true,
+  frame_options: 'SAMEORIGIN',                         // Allow framing from same origin
+  strict_transport_security: {
+    max_age: 31536000,                                 // 1 year
+    include_sub_domains: true,
     preload: true
   }
 }));
 
 // Disable specific headers
 app.use(security({
-  contentSecurityPolicy: false,   // Disable CSP if using a CDN
-  strictTransportSecurity: false  // Disable HSTS for development
+  content_security_policy: false,   // Disable CSP if using a CDN
+  strict_transport_security: false  // Disable HSTS for development
 }));
 ```
 

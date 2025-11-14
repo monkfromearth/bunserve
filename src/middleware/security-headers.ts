@@ -8,32 +8,32 @@ export interface SecurityHeadersOptions {
   enabled?: boolean;
 
   /** Content Security Policy (default: strict policy) */
-  contentSecurityPolicy?:
+  content_security_policy?:
     | false
     | {
         directives?: Record<string, string | string[]>;
       };
 
   /** X-Frame-Options (default: 'DENY') */
-  frameOptions?: false | 'DENY' | 'SAMEORIGIN';
+  frame_options?: false | 'DENY' | 'SAMEORIGIN';
 
   /** X-Content-Type-Options (default: 'nosniff') */
-  contentTypeOptions?: false | 'nosniff';
+  content_type_options?: false | 'nosniff';
 
   /** X-XSS-Protection (default: '1; mode=block') */
-  xssProtection?: false | '0' | '1' | '1; mode=block';
+  xss_protection?: false | '0' | '1' | '1; mode=block';
 
   /** Strict-Transport-Security (default: enabled with 1 year) */
-  strictTransportSecurity?:
+  strict_transport_security?:
     | false
     | {
-        maxAge?: number;
-        includeSubDomains?: boolean;
+        max_age?: number;
+        include_sub_domains?: boolean;
         preload?: boolean;
       };
 
   /** Referrer-Policy (default: 'no-referrer') */
-  referrerPolicy?:
+  referrer_policy?:
     | false
     | 'no-referrer'
     | 'no-referrer-when-downgrade'
@@ -45,19 +45,19 @@ export interface SecurityHeadersOptions {
     | 'unsafe-url';
 
   /** Permissions-Policy (default: restrictive policy) */
-  permissionsPolicy?: false | Record<string, string[]>;
+  permissions_policy?: false | Record<string, string[]>;
 
   /** X-Permitted-Cross-Domain-Policies (default: 'none') */
-  crossDomainPolicy?: false | 'none' | 'master-only' | 'by-content-type' | 'all';
+  cross_domain_policy?: false | 'none' | 'master-only' | 'by-content-type' | 'all';
 
   /** Remove X-Powered-By header (default: true) */
-  removePoweredBy?: boolean;
+  remove_powered_by?: boolean;
 }
 
 /**
  * Default CSP directives (strict but functional)
  */
-const defaultCSP: Record<string, string | string[]> = {
+const default_csp: Record<string, string | string[]> = {
   'default-src': ["'self'"],
   'base-uri': ["'self'"],
   'font-src': ["'self'", 'https:', 'data:'],
@@ -74,14 +74,14 @@ const defaultCSP: Record<string, string | string[]> = {
 /**
  * Format CSP directives into header value
  */
-function formatCSP(directives: Record<string, string | string[]>): string {
+function format_csp(directives: Record<string, string | string[]>): string {
   return Object.entries(directives)
     .map(([key, value]) => {
       if (Array.isArray(value) && value.length === 0) {
         return key;
       }
-      const valueStr = Array.isArray(value) ? value.join(' ') : value;
-      return `${key} ${valueStr}`;
+      const value_str = Array.isArray(value) ? value.join(' ') : value;
+      return `${key} ${value_str}`;
     })
     .join('; ');
 }
@@ -107,7 +107,7 @@ function formatCSP(directives: Record<string, string | string[]>): string {
  *
  * // Custom configuration
  * app.use(security({
- *   contentSecurityPolicy: {
+ *   content_security_policy: {
  *     directives: {
  *       'default-src': ["'self'"],
  *       'script-src': ["'self'", "'unsafe-inline'"], // Allow inline scripts
@@ -115,37 +115,37 @@ function formatCSP(directives: Record<string, string | string[]>): string {
  *       'img-src': ["'self'", 'https:']
  *     }
  *   },
- *   frameOptions: 'SAMEORIGIN'
+ *   frame_options: 'SAMEORIGIN'
  * }));
  *
  * // Disable specific headers
  * app.use(security({
- *   contentSecurityPolicy: false, // Disable CSP
- *   strictTransportSecurity: false // Disable HSTS
+ *   content_security_policy: false, // Disable CSP
+ *   strict_transport_security: false // Disable HSTS
  * }));
  * ```
  */
 export function security(options: SecurityHeadersOptions = {}): Middleware {
   const {
     enabled = true,
-    contentSecurityPolicy = { directives: defaultCSP },
-    frameOptions = 'DENY',
-    contentTypeOptions = 'nosniff',
-    xssProtection = '1; mode=block',
-    strictTransportSecurity = {
-      maxAge: 31536000, // 1 year
-      includeSubDomains: true,
+    content_security_policy = { directives: default_csp },
+    frame_options = 'DENY',
+    content_type_options = 'nosniff',
+    xss_protection = '1; mode=block',
+    strict_transport_security = {
+      max_age: 31536000, // 1 year
+      include_sub_domains: true,
       preload: false
     },
-    referrerPolicy = 'no-referrer',
-    permissionsPolicy = {
+    referrer_policy = 'no-referrer',
+    permissions_policy = {
       camera: [],
       microphone: [],
       geolocation: [],
       'payment': []
     },
-    crossDomainPolicy = 'none',
-    removePoweredBy = true
+    cross_domain_policy = 'none',
+    remove_powered_by = true
   } = options;
 
   if (!enabled) {
@@ -156,51 +156,51 @@ export function security(options: SecurityHeadersOptions = {}): Middleware {
 
   return async (context, next) => {
     // Remove X-Powered-By
-    if (removePoweredBy) {
+    if (remove_powered_by) {
       delete context.set.headers['X-Powered-By'];
     }
 
     // Content Security Policy
-    if (contentSecurityPolicy) {
-      const directives = contentSecurityPolicy.directives || defaultCSP;
-      context.set.headers['Content-Security-Policy'] = formatCSP(directives);
+    if (content_security_policy) {
+      const directives = content_security_policy.directives || default_csp;
+      context.set.headers['Content-Security-Policy'] = format_csp(directives);
     }
 
     // X-Frame-Options
-    if (frameOptions) {
-      context.set.headers['X-Frame-Options'] = frameOptions;
+    if (frame_options) {
+      context.set.headers['X-Frame-Options'] = frame_options;
     }
 
     // X-Content-Type-Options
-    if (contentTypeOptions) {
-      context.set.headers['X-Content-Type-Options'] = contentTypeOptions;
+    if (content_type_options) {
+      context.set.headers['X-Content-Type-Options'] = content_type_options;
     }
 
     // X-XSS-Protection
-    if (xssProtection) {
-      context.set.headers['X-XSS-Protection'] = xssProtection;
+    if (xss_protection) {
+      context.set.headers['X-XSS-Protection'] = xss_protection;
     }
 
     // Strict-Transport-Security
-    if (strictTransportSecurity) {
-      const { maxAge = 31536000, includeSubDomains = true, preload = false } =
-        typeof strictTransportSecurity === 'object' ? strictTransportSecurity : {};
+    if (strict_transport_security) {
+      const { max_age = 31536000, include_sub_domains = true, preload = false } =
+        typeof strict_transport_security === 'object' ? strict_transport_security : {};
 
-      let hstsValue = `max-age=${maxAge}`;
-      if (includeSubDomains) hstsValue += '; includeSubDomains';
-      if (preload) hstsValue += '; preload';
+      let hsts_value = `max-age=${max_age}`;
+      if (include_sub_domains) hsts_value += '; includeSubDomains';
+      if (preload) hsts_value += '; preload';
 
-      context.set.headers['Strict-Transport-Security'] = hstsValue;
+      context.set.headers['Strict-Transport-Security'] = hsts_value;
     }
 
     // Referrer-Policy
-    if (referrerPolicy) {
-      context.set.headers['Referrer-Policy'] = referrerPolicy;
+    if (referrer_policy) {
+      context.set.headers['Referrer-Policy'] = referrer_policy;
     }
 
     // Permissions-Policy
-    if (permissionsPolicy) {
-      const policyStr = Object.entries(permissionsPolicy)
+    if (permissions_policy) {
+      const policy_str = Object.entries(permissions_policy)
         .map(([key, origins]) => {
           if (origins.length === 0) {
             return `${key}=()`;
@@ -209,12 +209,12 @@ export function security(options: SecurityHeadersOptions = {}): Middleware {
         })
         .join(', ');
 
-      context.set.headers['Permissions-Policy'] = policyStr;
+      context.set.headers['Permissions-Policy'] = policy_str;
     }
 
     // X-Permitted-Cross-Domain-Policies
-    if (crossDomainPolicy) {
-      context.set.headers['X-Permitted-Cross-Domain-Policies'] = crossDomainPolicy;
+    if (cross_domain_policy) {
+      context.set.headers['X-Permitted-Cross-Domain-Policies'] = cross_domain_policy;
     }
 
     await next();

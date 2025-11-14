@@ -295,6 +295,212 @@ app.use(logger({
 }));
 ```
 
+### Security Headers Middleware
+
+Add comprehensive security headers to protect against common web vulnerabilities:
+
+```typescript
+import { bunserve, security } from 'bunserve';
+
+const app = bunserve();
+
+// Use default security headers (recommended for most applications)
+app.use(security());
+
+// Custom security configuration
+app.use(security({
+  // Content Security Policy - controls which resources can be loaded
+  content_security_policy: {
+    directives: {
+      'default-src': ["'self'"],                        // Only load resources from same origin
+      'script-src': ["'self'", "'unsafe-inline'"],      // Allow inline scripts if needed
+      'style-src': ["'self'", "'unsafe-inline'"],       // Allow inline styles
+      'img-src': ["'self'", 'https:', 'data:']          // Allow images from HTTPS and data URIs
+    }
+  },
+
+  // X-Frame-Options - prevents clickjacking attacks
+  frame_options: 'SAMEORIGIN',                          // Allow framing from same origin only
+
+  // X-Content-Type-Options - prevents MIME type sniffing
+  content_type_options: 'nosniff',                      // Force browser to respect Content-Type
+
+  // X-XSS-Protection - legacy XSS protection for older browsers
+  xss_protection: '1; mode=block',                      // Enable XSS filter and block rendering
+
+  // Strict-Transport-Security (HSTS) - enforces HTTPS
+  strict_transport_security: {
+    max_age: 31536000,                                  // 1 year in seconds
+    include_sub_domains: true,                          // Apply to all subdomains
+    preload: true                                       // Allow inclusion in browser preload lists
+  },
+
+  // Referrer-Policy - controls referrer information
+  referrer_policy: 'strict-origin-when-cross-origin',  // Send origin only for cross-origin requests
+
+  // Permissions-Policy - controls which browser features can be used
+  permissions_policy: {
+    camera: [],                                         // Disable camera access
+    microphone: [],                                     // Disable microphone access
+    geolocation: ['self'],                              // Allow geolocation only from same origin
+    payment: []                                         // Disable payment API
+  },
+
+  // X-Permitted-Cross-Domain-Policies - controls Adobe Flash/PDF cross-domain
+  cross_domain_policy: 'none',                          // No cross-domain policies allowed
+
+  // Remove X-Powered-By header to hide server information
+  remove_powered_by: true                               // Removes X-Powered-By: Bun header
+}));
+```
+
+#### Security Headers Options
+
+**Purpose and Impact:**
+
+Each security header protects against specific vulnerabilities:
+
+1. **Content Security Policy (CSP)** - Prevents XSS attacks by controlling resource loading
+   - Impact: Blocks malicious scripts from executing
+   - Use case: Essential for applications handling user-generated content
+
+2. **X-Frame-Options** - Prevents clickjacking attacks
+   - Impact: Stops your site from being embedded in malicious iframes
+   - Use case: Critical for login pages and sensitive operations
+
+3. **Strict-Transport-Security (HSTS)** - Enforces HTTPS connections
+   - Impact: Prevents man-in-the-middle attacks by forcing HTTPS
+   - Use case: Required for production applications handling sensitive data
+
+4. **Permissions-Policy** - Controls browser feature access
+   - Impact: Reduces attack surface by disabling unnecessary browser APIs
+   - Use case: Privacy-focused applications
+
+#### Disabling Specific Headers
+
+Disable headers when not needed:
+
+```typescript
+// Disable specific headers (useful for development or CDN usage)
+app.use(security({
+  content_security_policy: false,           // Disable CSP if using external CDN
+  strict_transport_security: false          // Disable HSTS for local development
+}));
+
+// Minimal security setup (not recommended for production)
+app.use(security({
+  content_security_policy: false,
+  strict_transport_security: false,
+  frame_options: 'SAMEORIGIN',              // Keep basic clickjacking protection
+  remove_powered_by: true                   // Always hide server information
+}));
+```
+
+#### Development vs Production Security
+
+```typescript
+const app = bunserve();
+
+// Development configuration - relaxed security for easier debugging
+if (process.env.NODE_ENV === 'development') {
+  app.use(security({
+    content_security_policy: {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'"],  // Allow eval for hot reload
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'https:', 'data:', 'blob:']
+      }
+    },
+    strict_transport_security: false,       // Disable HSTS for HTTP development
+    frame_options: 'SAMEORIGIN'
+  }));
+} else {
+  // Production configuration - strict security
+  app.use(security({
+    content_security_policy: {
+      directives: {
+        'default-src': ["'self'"],
+        'script-src': ["'self'"],           // No inline scripts in production
+        'style-src': ["'self'"],            // No inline styles in production
+        'img-src': ["'self'", 'https:'],
+        'connect-src': ["'self'", 'https://api.example.com']
+      }
+    },
+    strict_transport_security: {
+      max_age: 31536000,
+      include_sub_domains: true,
+      preload: true
+    },
+    frame_options: 'DENY',                  // Don't allow any framing
+    referrer_policy: 'no-referrer'          // Don't send referrer information
+  }));
+}
+```
+
+#### Common CSP Configurations
+
+```typescript
+// API-only application (no frontend assets)
+app.use(security({
+  content_security_policy: {
+    directives: {
+      'default-src': ["'none'"],            // Block all resource loading
+      'frame-ancestors': ["'none'"]         // Cannot be framed at all
+    }
+  }
+}));
+
+// Application using external CDNs
+app.use(security({
+  content_security_policy: {
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': [
+        "'self'",
+        'https://cdn.jsdelivr.net',         // Allow scripts from JSDelivr CDN
+        'https://unpkg.com'                 // Allow scripts from Unpkg CDN
+      ],
+      'style-src': [
+        "'self'",
+        'https://cdn.jsdelivr.net',         // Allow styles from JSDelivr CDN
+        'https://fonts.googleapis.com'      // Allow Google Fonts
+      ],
+      'font-src': [
+        "'self'",
+        'https://fonts.gstatic.com'         // Allow Google Fonts
+      ],
+      'img-src': ["'self'", 'https:', 'data:']
+    }
+  }
+}));
+
+// Application with analytics and third-party services
+app.use(security({
+  content_security_policy: {
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': [
+        "'self'",
+        'https://www.google-analytics.com',  // Google Analytics
+        'https://www.googletagmanager.com'   // Google Tag Manager
+      ],
+      'connect-src': [
+        "'self'",
+        'https://www.google-analytics.com',  // Analytics API calls
+        'https://api.example.com'            // Your API
+      ],
+      'img-src': [
+        "'self'",
+        'https:',
+        'data:',
+        'https://www.google-analytics.com'   // Analytics tracking pixels
+      ]
+    }
+  }
+}));
+```
+
 ## Route-Specific Middleware
 
 Apply middleware to specific routes:
@@ -698,6 +904,7 @@ app.use(async ({}, next) => {
 ## Next Steps
 
 - **[Error Handling](./05-error-handling.md)** - Advanced error handling patterns
-- **[Response Handling](./responses.md)** - Different response types
+- **[Response Handling](./09-responses.md)** - Different response types
 - **[Examples](./07-examples.md)** - Complete middleware examples
 - **[API Reference](./08-api-reference.md)** - Complete API documentation
+- **[File Uploads](./12-file-uploads.md)** - Handle file uploads securely
